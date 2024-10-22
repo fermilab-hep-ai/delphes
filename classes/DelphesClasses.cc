@@ -251,6 +251,7 @@ Candidate::Candidate() :
   NSubJetsTrimmed(0),
   NSubJetsPruned(0),
   NSubJetsSoftDropped(0),
+  puppiW(1),
   ExclYmerge23(0),
   ExclYmerge34(0),
   ExclYmerge45(0),
@@ -460,6 +461,7 @@ void Candidate::Copy(TObject &obj) const
   object.NSubJetsTrimmed = NSubJetsTrimmed;
   object.NSubJetsPruned = NSubJetsPruned;
   object.NSubJetsSoftDropped = NSubJetsSoftDropped;
+  object.puppiW = puppiW;
 
   object.SoftDroppedJet = SoftDroppedJet;
   object.SoftDroppedSubJet1 = SoftDroppedSubJet1;
@@ -594,6 +596,7 @@ void Candidate::Clear(Option_t *option)
   NSubJetsTrimmed = 0;
   NSubJetsPruned = 0;
   NSubJetsSoftDropped = 0;
+  puppiW = 1;
 
   fArray = 0;
 }

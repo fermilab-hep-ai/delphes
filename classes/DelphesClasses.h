@@ -546,6 +546,8 @@ public:
   Float_t C; // track curvature inverse
   Float_t Mass; // particle mass
 
+  Float_t PuppiW; // puppi weight
+
   Float_t EtaOuter; // track pseudorapidity at the tracker edge
   Float_t PhiOuter; // track azimuthal angle at the tracker edge
 
@@ -752,6 +754,10 @@ public:
   // N-subjettiness variables
 
   Float_t Tau[5];
+
+  // Puppi weight
+
+  Double_t puppiW;
 
   // Other Substructure variables
 

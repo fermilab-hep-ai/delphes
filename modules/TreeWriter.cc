@@ -495,8 +495,10 @@ void TreeWriter::ProcessParticleFlowCandidates(ExRootTreeBranch *branch, TObjArr
     entry->SetUniqueID(candidate->GetUniqueID());
 
     entry->PID = candidate->PID;
-
+    
     entry->Charge = candidate->Charge;
+
+    entry->PuppiW = candidate->puppiW;
 
     entry->EtaOuter = eta;
     entry->PhiOuter = position.Phi();

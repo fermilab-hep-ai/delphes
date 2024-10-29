@@ -266,6 +266,13 @@ void RunPUPPI::Process()
   std::vector<double>    fWeights = fPuppi->puppiWeights();
   std::vector<PseudoJet> puppiParticles = fPuppi->puppiParticles();
 
+  // Print the first few PUPPI weights
+  std::cout << "First few PUPPI Weights: ";
+  for (size_t i = 0; i < 5 && i < fWeights.size(); ++i) { 
+    std::cout << fWeights[i] << " ";
+  }
+  std::cout << std::endl;
+
   // Loop on final particles
   for(std::vector<PseudoJet>::iterator it = puppiParticles.begin(); it != puppiParticles.end(); it++)
   {

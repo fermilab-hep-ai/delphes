@@ -128,6 +128,7 @@ void FastJetFinder::Init()
 
   fNJets = GetInt("NJets", 2);
   fExclusiveClustering = GetBool("ExclusiveClustering", false);
+  fUsePUPPI = GetBool("UsePUPPI", false);
 
   //-- Valencia Linear Collider algorithm
 
@@ -345,10 +346,21 @@ void FastJetFinder::Process()
   while((candidate = static_cast<Candidate *>(fItInputArray->Next())))
   {
     momentum = candidate->Momentum;
-    jet = PseudoJet(momentum.Px(), momentum.Py(), momentum.Pz(), momentum.E());
-    jet.set_user_index(number);
-    inputList.push_back(jet);
-    ++number;
+    if (fUsePUPPI){
+      if (candidate->puppiW != 0){
+	float puppiw = candidate->puppiW;
+	jet = PseudoJet(puppiw*momentum.Px(), puppiw*momentum.Py(), puppiw*momentum.Pz(), puppiw*momentum.E());
+	jet.set_user_index(number);
+	inputList.push_back(jet);
+      }
+      ++number;
+    }
+    else{
+      jet = PseudoJet(momentum.Px(), momentum.Py(), momentum.Pz(), momentum.E());
+      jet.set_user_index(number);
+      inputList.push_back(jet);
+      ++number;
+    }
   }
 
   // construct jets

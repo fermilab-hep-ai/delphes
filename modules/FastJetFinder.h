@@ -87,6 +87,7 @@ private:
 
   Int_t fNJets;
   Bool_t fExclusiveClustering;
+  Bool_t fUsePUPPI;
 
   //-- Valencia Linear Collider algorithm
   Double_t fGamma;

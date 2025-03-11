@@ -73,6 +73,8 @@ void Merger::Init()
   const TObjArray *array;
   TIterator *iterator;
 
+  fUsePUPPI = GetBool("UsePUPPI", false);
+
   size = param.GetSize();
   for(i = 0; i < size; ++i)
   {
@@ -130,11 +132,21 @@ void Merger::Process()
     iterator->Reset();
     while((candidate = static_cast<Candidate *>(iterator->Next())))
     {
-      const TLorentzVector &candidateMomentum = candidate->Momentum;
 
-      momentum += candidateMomentum;
-      sumPT += candidateMomentum.Pt();
-      sumE += candidateMomentum.E();
+      if (fUsePUPPI){
+        float puppiW = candidate->puppiW;
+        TLorentzVector weightedMomentum = candidate->Momentum;
+        weightedMomentum *= puppiW; 
+        momentum += weightedMomentum;
+        sumPT    += weightedMomentum.Pt();
+        sumE     += weightedMomentum.E();
+      }
+      else{
+        const TLorentzVector &candidateMomentum = candidate->Momentum;
+        momentum += candidateMomentum;
+        sumPT += candidateMomentum.Pt();
+        sumE += candidateMomentum.E();
+      }
 
       fOutputArray->Add(candidate);
     }

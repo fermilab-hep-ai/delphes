@@ -52,6 +52,8 @@ private:
   TObjArray *fMomentumOutputArray; //!
   TObjArray *fEnergyOutputArray; //!
 
+  Bool_t fUsePUPPI;
+  
   ClassDef(Merger, 1)
 };
 

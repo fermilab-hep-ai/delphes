@@ -37,14 +37,14 @@ proc dependencies {fileName firstLine {force 1} {command {}}} {
     foreach file $list {puts -nonewline $suffix$file}
     if {$command != {}} {
       puts {}
-      puts $command
+      puts -nonewline $command
     }
     puts {}
   } elseif {$force} {
     puts -nonewline $firstLine
     if {$command != {}} {
       puts {}
-      puts $command
+      puts -nonewline $command
     }
     puts {}
   }
@@ -72,21 +72,17 @@ proc dictDeps {dictPrefix args} {
     dependencies $fileName "$dictName$srcSuf:$suffix$fileName"
 
     puts -nonewline $dictName$pcmSuf:$suffix
-    puts -nonewline $dictName$srcSuf
-    puts {}
+    puts $dictName$srcSuf
 
     puts -nonewline [file tail $dictName$pcmSuf]:$suffix
-    puts -nonewline $dictName$pcmSuf
-    puts {}
+    puts $dictName$pcmSuf
   }
 
   puts -nonewline "${dictPrefix}_OBJ += $suffix"
   puts [join $dictObjFiles $suffix]
-  puts {}
 
   puts -nonewline "${dictPrefix}_PCM += $suffix"
   puts [join $dictPcmFiles $suffix]
-  puts {}
 }
 
 proc sourceDeps {srcPrefix args} {
@@ -116,13 +112,11 @@ proc sourceDeps {srcPrefix args} {
 
   puts -nonewline "${srcPrefix}_OBJ += $suffix"
   puts [join $srcObjFiles $suffix]
-  puts {}
 
   puts {ifeq ($(HAS_PYTHIA8),true)}
   puts -nonewline "${srcPrefix}_OBJ += $suffix"
   puts [join $srcObjFilesPythia8 $suffix]
   puts {endif}
-  puts {}
 }
 
 proc tclDeps {} {
@@ -134,8 +128,6 @@ proc tclDeps {} {
   set srcObjFiles {}
 
   foreach fileName $source {
-    if {$fileName == "tcl/tclc.c" || $fileName == "tcl/tcl.c"} continue
-
     regsub {\.c} $fileName {} srcName
     set srcObjName $prefix$srcName
 
@@ -146,7 +138,6 @@ proc tclDeps {} {
 
   puts -nonewline "TCL_OBJ += $suffix"
   puts [join $srcObjFiles $suffix]
-  puts {}
 }
 
 proc executableDeps {args} {
@@ -166,7 +157,6 @@ proc executableDeps {args} {
     lappend exeObjFiles $exeObjName$objSuf
 
     puts "$exeName$exeSuf:$suffix$exeObjName$objSuf"
-    puts {}
 
     dependencies $fileName "$exeObjName$objSuf:$suffix$fileName"
   }
@@ -174,12 +164,10 @@ proc executableDeps {args} {
   if [info exists exeFiles] {
     puts -nonewline "EXECUTABLE += $suffix"
     puts [join $exeFiles $suffix]
-    puts {}
   }
   if [info exists exeObjFiles] {
     puts -nonewline "EXECUTABLE_OBJ += $suffix"
     puts [join $exeObjFiles $suffix]
-    puts {}
   }
 }
 
@@ -207,9 +195,9 @@ ROOT_MAJOR := $(shell $(RC) --version | cut -d'.' -f1)
 SrcSuf = cc
 PcmSuf = _rdict.pcm
 
-CXXFLAGS += $(ROOTCFLAGS) -Wno-write-strings -D_FILE_OFFSET_BITS=64 -DDROP_CGAL -I. -Iexternal -Iexternal/tcl
-DELPHES_LIBS = $(shell $(RC) --libs) -lEG $(SYSLIBS)
-DISPLAY_LIBS = $(shell $(RC) --evelibs) -lGuiHtml $(SYSLIBS)
+CXXFLAGS += $(ROOTCFLAGS) -D_FILE_OFFSET_BITS=64 -DDROP_CGAL -I. -Iexternal -Iexternal/tcl
+DELPHES_LIBS = $(shell $(RC) --libs) -lEG
+DISPLAY_LIBS = $(shell $(RC) --evelibs) -lGuiHtml
 
 ifneq ($(CMSSW_FWLITE_INCLUDE_PATH),)
 HAS_CMSSW = true
@@ -286,7 +274,6 @@ DISTDIR = Delphes-$(VERSION)
 DISTTAR = $(DISTDIR).tar.gz
 
 all:
-
 }
 
 executableDeps {converters/*.cpp} {examples/*.cpp} {validation/*.cpp}
@@ -296,23 +283,19 @@ executableDeps {readers/DelphesHepMC2.cpp} {readers/DelphesHepMC3.cpp} {readers/
 puts {ifeq ($(HAS_CMSSW),true)}
 executableDeps {readers/DelphesCMSFWLite.cpp}
 puts {endif}
-puts {}
 
 puts {ifeq ($(HAS_PROMC),true)}
 executableDeps {readers/DelphesProMC.cpp}
 puts {endif}
-puts {}
 
 puts {ifeq ($(HAS_PROIO),true)}
 executableDeps {readers/DelphesProIO.cpp}
 puts {endif}
-puts {}
 
 puts {ifeq ($(HAS_PYTHIA8),true)}
 executableDeps {readers/DelphesPythia8.cpp}
 dictDeps {DELPHES_DICT} {modules/Pythia8LinkDef.h}
 puts {endif}
-puts {}
 
 dictDeps {DELPHES_DICT} {classes/ClassesLinkDef.h} {modules/ModulesLinkDef.h} {external/ExRootAnalysis/ExRootAnalysisLinkDef.h}
 
@@ -331,7 +314,6 @@ tclDeps
 headerDeps
 
 puts {
-
 ###
 
 ifeq ($(ROOT_MAJOR),6)
@@ -345,17 +327,8 @@ endif
 $(NOFASTJET): $(DELPHES_DICT_OBJ) $(DELPHES_OBJ) $(TCL_OBJ)
 	@mkdir -p $(@D)
 	@echo ">> Building $@"
-ifeq ($(ARCH),aix5)
-	@$(MAKESHARED) $(OutPutOpt) $@ $(DELPHES_LIBS) -p 0 $^
-else
 ifeq ($(PLATFORM),macosx)
-# We need to make both the .dylib and the .so
 	@$(LD) $(SOFLAGS)$@ $(LDFLAGS) $^ $(OutPutOpt) $@ $(DELPHES_LIBS)
-ifneq ($(subst $(MACOSX_MINOR),,1234),1234)
-ifeq ($(MACOSX_MINOR),4)
-	@ln -sf $@ $(subst .$(DllSuf),.so,$@)
-endif
-endif
 else
 ifeq ($(PLATFORM),win32)
 	@bindexplib $* $^ > $*.def
@@ -364,25 +337,14 @@ ifeq ($(PLATFORM),win32)
 	@$(MT_DLL)
 else
 	@$(LD) $(SOFLAGS) $(LDFLAGS) $^ $(OutPutOpt) $@ $(DELPHES_LIBS)
-	@$(MT_DLL)
-endif
 endif
 endif
 
 $(DELPHES): $(DELPHES_DICT_OBJ) $(FASTJET_DICT_OBJ) $(DELPHES_OBJ) $(FASTJET_OBJ) $(TCL_OBJ)
 	@mkdir -p $(@D)
 	@echo ">> Building $@"
-ifeq ($(ARCH),aix5)
-	@$(MAKESHARED) $(OutPutOpt) $@ $(DELPHES_LIBS) -p 0 $^
-else
 ifeq ($(PLATFORM),macosx)
-# We need to make both the .dylib and the .so
 	@$(LD) $(SOFLAGS)$@ $(LDFLAGS) $^ $(OutPutOpt) $@ $(DELPHES_LIBS)
-ifneq ($(subst $(MACOSX_MINOR),,1234),1234)
-ifeq ($(MACOSX_MINOR),4)
-	@ln -sf $@ $(subst .$(DllSuf),.so,$@)
-endif
-endif
 else
 ifeq ($(PLATFORM),win32)
 	@bindexplib $* $^ > $*.def
@@ -391,25 +353,14 @@ ifeq ($(PLATFORM),win32)
 	@$(MT_DLL)
 else
 	@$(LD) $(SOFLAGS) $(LDFLAGS) $^ $(OutPutOpt) $@ $(DELPHES_LIBS)
-	@$(MT_DLL)
-endif
 endif
 endif
 
 $(DISPLAY): $(DELPHES_DICT_OBJ) $(FASTJET_DICT_OBJ) $(DISPLAY_DICT_OBJ) $(DELPHES_OBJ) $(FASTJET_OBJ) $(DISPLAY_OBJ) $(TCL_OBJ)
 	@mkdir -p $(@D)
 	@echo ">> Building $@"
-ifeq ($(ARCH),aix5)
-	@$(MAKESHARED) $(OutPutOpt) $@ $(DISPLAY_LIBS) -p 0 $^
-else
 ifeq ($(PLATFORM),macosx)
-# We need to make both the .dylib and the .so
 	@$(LD) $(SOFLAGS)$@ $(LDFLAGS) $^ $(OutPutOpt) $@ $(DISPLAY_LIBS)
-ifneq ($(subst $(MACOSX_MINOR),,1234),1234)
-ifeq ($(MACOSX_MINOR),4)
-	@ln -sf $@ $(subst .$(DllSuf),.so,$@)
-endif
-endif
 else
 ifeq ($(PLATFORM),win32)
 	@bindexplib $* $^ > $*.def
@@ -418,8 +369,6 @@ ifeq ($(PLATFORM),win32)
 	@$(MT_DLL)
 else
 	@$(LD) $(SOFLAGS) $(LDFLAGS) $^ $(OutPutOpt) $@ $(DISPLAY_LIBS)
-	@$(MT_DLL)
-endif
 endif
 endif
 
@@ -433,7 +382,7 @@ distclean: clean
 dist:
 	@echo ">> Building $(DISTTAR)"
 	@mkdir -p $(DISTDIR)
-	@cp -a AUTHORS CHANGELOG CMakeLists.txt COPYING DelphesEnv.sh LICENSE NOTICE README README_4LHCb Makefile MinBias.pileup configure cards classes converters display doc examples external modules python readers validation $(DISTDIR)
+	@cp -a AUTHORS CHANGELOG CMakeLists.txt COPYING DelphesEnv.sh LICENSE NOTICE README README_4LHCb Makefile MinBias.pileup configure cards classes cmake converters display doc examples external modules python readers validation $(DISTDIR)
 	@find $(DISTDIR) -depth -name .\* -exec rm -rf {} \;
 	@tar -czf $(DISTTAR) $(DISTDIR)
 	@rm -rf $(DISTDIR)
@@ -507,5 +456,4 @@ $(EXECUTABLE): %$(ExeSuf): $(DELPHES_DICT_OBJ) $(FASTJET_DICT_OBJ) $(DELPHES_OBJ
 	@$(LD) $(LDFLAGS) $^ $(DELPHES_LIBS) $(OutPutOpt)$@
 
 ###
-
 }

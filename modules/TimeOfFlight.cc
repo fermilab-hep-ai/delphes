@@ -51,7 +51,7 @@ using namespace std;
 //------------------------------------------------------------------------------
 
 TimeOfFlight::TimeOfFlight() :
-  fItTrackInputArray(0), fItVertexInputArray(0)
+  fItInputArray(0), fItVertexInputArray(0)
 {
 }
 
@@ -70,8 +70,8 @@ void TimeOfFlight::Init()
   fVertexTimeMode = GetInt("VertexTimeMode", 0);
 
   // import track input array
-  fTrackInputArray = ImportArray(GetString("TrackInputArray", "MuonMomentumSmearing/muons"));
-  fItTrackInputArray = fTrackInputArray->MakeIterator();
+  fInputArray = ImportArray(GetString("InputArray", "MuonMomentumSmearing/muons"));
+  fItInputArray = fInputArray->MakeIterator();
 
   // import vertex input array
   fVertexInputArray = ImportArray(GetString("VertexInputArray", "TruthVertexFinder/vertices"));
@@ -85,7 +85,7 @@ void TimeOfFlight::Init()
 
 void TimeOfFlight::Finish()
 {
-  if(fItTrackInputArray) delete fItTrackInputArray;
+  if(fItInputArray) delete fItInputArray;
   if(fItVertexInputArray) delete fItVertexInputArray;
 }
 
@@ -95,15 +95,15 @@ void TimeOfFlight::Process()
 {
   Candidate *candidate, *particle, *vertex, *constituent, *mother;
   Double_t ti, t_truth, tf;
-  Double_t l, tof, beta, p,  mass;
+  Double_t l, tof, beta;
 
   const Double_t c_light = 2.99792458E8;
 
   // first compute momenta of vertices based on reconstructed tracks
   ComputeVertexMomenta();
 
-  fItTrackInputArray->Reset();
-  while((candidate = static_cast<Candidate *>(fItTrackInputArray->Next())))
+  fItInputArray->Reset();
+  while((candidate = static_cast<Candidate *>(fItInputArray->Next())))
   {
 
     particle = static_cast<Candidate *>(candidate->GetCandidates()->At(0));
@@ -111,12 +111,9 @@ void TimeOfFlight::Process()
     const TLorentzVector &candidateInitialPosition = particle->Position;
     const TLorentzVector &candidateInitialPositionSmeared = candidate->InitialPosition;
     const TLorentzVector &candidateFinalPosition = candidate->Position;
-    const TLorentzVector &candidateMomentum = particle->Momentum;
 
     // time at vertex from MC truth
     t_truth = candidateInitialPosition.T() * 1.0E-3 / c_light;
-
-    if (candidate->Position.Vect().Mag() < 5.) continue;
 
     // various options on how to calculate the vertex time
     ti=0;
@@ -163,8 +160,6 @@ void TimeOfFlight::Process()
       break;
   	}
 
-    p = candidateMomentum.P();
-
     // this quantity has already been smeared by another module
     tf = candidateFinalPosition.T() * 1.0E-3 / c_light;
 
@@ -177,9 +172,6 @@ void TimeOfFlight::Process()
     beta = l/(c_light*tof);
 
     // calculate particle mass (i.e particle ID)
-    mass = 0.;
-    if (beta<1) mass = p* TMath::Sqrt(1/(beta*beta) - 1);
-
     mother    = candidate;
     candidate = static_cast<Candidate*>(candidate->Clone());
 
@@ -209,8 +201,8 @@ void TimeOfFlight::ComputeVertexMomenta()
 
     while((constituent = static_cast<Candidate *>(itGenParts.Next())))
     {
-      fItTrackInputArray->Reset();
-      while((track = static_cast<Candidate *>(fItTrackInputArray->Next())))
+      fItInputArray->Reset();
+      while((track = static_cast<Candidate *>(fItInputArray->Next())))
       {
         // get gen part that generated track
         particle = static_cast<Candidate *>(track->GetCandidates()->At(0));

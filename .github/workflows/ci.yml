@@ -8,14 +8,14 @@ jobs:
 
     strategy:
       matrix:
-        container: ["delphes/ubuntu:14.04", "delphes/ubuntu:18.04", "delphes/fedora:30"]
+        container: ["delphes/ubuntu:24.04", "delphes/fedora:42"]
 
     container:
       image: ${{ matrix.container }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Build Delphes using make
         run: |

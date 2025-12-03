@@ -74,6 +74,7 @@ void ConvertInput(Long64_t eventCounter, Pythia8::Pythia *pythia,
   element->ProcessID = pythia->info.code();
   element->MPI = 1;
   element->Weight = pythia->info.weight();
+
   element->Scale = pythia->info.QRen();
   element->AlphaQED = pythia->info.alphaEM();
   element->AlphaQCD = pythia->info.alphaS();
@@ -142,6 +143,7 @@ void ConvertInput(Long64_t eventCounter, Pythia8::Pythia *pythia,
     }
   }
 }
+
 
 //---------------------------------------------------------------------------
 
@@ -226,7 +228,7 @@ int main(int argc, char *argv[])
   TFile *outputFile = 0;
   TStopwatch readStopWatch, procStopWatch;
   ExRootTreeWriter *treeWriter = 0;
-  ExRootTreeBranch *branchEvent = 0;
+  ExRootTreeBranch *branchEvent = 0, *branchWeight = 0;
   ExRootTreeBranch *branchEventLHEF = 0, *branchWeightLHEF = 0;
   ExRootConfReader *confReader = 0;
   Delphes *modularDelphes = 0;
@@ -241,10 +243,6 @@ int main(int argc, char *argv[])
   Double_t spareParm1, spareParm2;
 
   Pythia8::Pythia *pythia = 0;
-
-  // for matching
-  Pythia8::CombineMatchingInput *combined = 0;
-  Pythia8::UserHooks *matching = 0;
 
   if(argc != 4)
   {
@@ -278,6 +276,7 @@ int main(int argc, char *argv[])
     treeWriter = new ExRootTreeWriter(outputFile, "Delphes");
 
     branchEvent = treeWriter->NewBranch("Event", HepMCEvent::Class());
+    branchWeight = treeWriter->NewBranch("Weight", Weight::Class());
 
     confReader = new ExRootConfReader;
     confReader->ReadFile(argv[1]);
@@ -294,20 +293,26 @@ int main(int argc, char *argv[])
     // Initialize Pythia
     pythia = new Pythia8::Pythia;
 
+    if(pythia == NULL)
+    {
+      throw runtime_error("can't create Pythia instance");
+    }
+
     // jet matching
 #if PYTHIA_VERSION_INTEGER < 8300
+    Pythia8::CombineMatchingInput *combined = 0;
+    Pythia8::UserHooks *matching = 0;
+
     matching = combined->getHook(*pythia);
     if(!matching)
     {
       throw runtime_error("can't do matching");
     }
     pythia->setUserHooksPtr(matching);
+#else
+    Pythia8::CombineMatchingInput combined;
+    combined.setHook(*pythia);
 #endif
-
-    if(pythia == NULL)
-    {
-      throw runtime_error("can't create Pythia instance");
-    }
 
     // Read in commands from configuration file
     if(!pythia->readFile(argv[2]))
@@ -324,7 +329,7 @@ int main(int argc, char *argv[])
     spareMode1 = pythia->mode("Main:spareMode1");
     spareParm1 = pythia->parm("Main:spareParm1");
     spareParm2 = pythia->parm("Main:spareParm2");
-
+        
     // Check if particle gun
     if(!spareFlag1)
     {
@@ -408,6 +413,16 @@ int main(int argc, char *argv[])
         reader->AnalyzeWeight(branchWeightLHEF);
       }
 
+#if PYTHIA_VERSION_INTEGER > 8300
+      // fill Pythia8 Weights - see https://pythia.org/latest-manual/CrossSectionsAndWeights.html
+      for(int iWeight = 0; iWeight < pythia->info.weightNameVector().size(); ++iWeight)
+      {
+        Weight *weight;
+        weight = static_cast<Weight *>(branchWeight->NewEntry());
+        weight->Weight = pythia->info.weightValueVector()[iWeight];
+      }
+#endif
+      
       treeWriter->Fill();
 
       treeWriter->Clear();

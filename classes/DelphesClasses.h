@@ -97,7 +97,7 @@ class HepMCEvent: public Event
 {
 public:
   Int_t ProcessID; // unique signal process id | signal_process_id()
-  Int_t MPI; // number of multi parton interactions | mpi ()
+  Int_t MPI; // number of multi parton interactions | mpi()
 
   Float_t Weight; // weight for the event
   Float_t CrossSection; // cross-section in pb
@@ -267,7 +267,7 @@ public:
   Float_t SumPtChargedPU; // isolation variable
   Float_t SumPt; // isolation variable
 
-  Int_t Status; // 1: prompt -- 2: non prompt -- 3: fake
+  Int_t Status; // 1: prompt, 2: non prompt, 3: fake
 
   static CompBase *fgCompare; //!
   const CompBase *GetCompare() const { return fgCompare; }
@@ -368,6 +368,7 @@ public:
   UInt_t Flavor; // jet flavor
   UInt_t FlavorAlgo; // jet flavor
   UInt_t FlavorPhys; // jet flavor
+  UInt_t TauFlavor; // jet flavor according to Tau tagging module
 
   UInt_t BTag; // 0 or 1 for a jet that has been tagged as containing a heavy quark
   UInt_t BTagAlgo; // 0 or 1 for a jet that has been tagged as containing a heavy quark
@@ -383,8 +384,8 @@ public:
   Int_t NCharged; // number of charged constituents
   Int_t NNeutrals; // number of neutral constituents
 
-  Float_t NeutralEnergyFraction;  // charged energy fraction
-  Float_t ChargedEnergyFraction;  // neutral energy fraction
+  Float_t NeutralEnergyFraction; // charged energy fraction
+  Float_t ChargedEnergyFraction; // neutral energy fraction
 
   Float_t Beta; // (sum pt of charged pile-up constituents)/(sum pt of charged constituents)
   Float_t BetaStar; // (sum pt of charged constituents coming from hard interaction)/(sum pt of charged constituents)
@@ -406,6 +407,7 @@ public:
   Int_t NSubJetsPruned; // number of subjets pruned
   Int_t NSubJetsSoftDropped; // number of subjets soft-dropped
 
+  Double_t ExclYmerge12;
   Double_t ExclYmerge23;
   Double_t ExclYmerge34;
   Double_t ExclYmerge45;
@@ -420,7 +422,7 @@ public:
   TLorentzVector P4() const;
   TLorentzVector Area;
 
-  ClassDef(Jet, 4)
+  ClassDef(Jet, 5)
 };
 
 //---------------------------------------------------------------------------
@@ -431,6 +433,11 @@ public:
   Int_t PID; // HEP ID number
 
   Int_t Charge; // track charge
+
+  Int_t IsPU; // 0 or 1 for particles from pile-up interactions
+  Int_t IsRecoPU; // 0 or 1 for reconstructed particles from pile-up
+  Float_t HardEnergyFraction; // fraction of hard scattering vs PU energy in the particle flow candidate
+
 
   Float_t P; // track momentum
   Float_t PT; // track transverse momentum
@@ -456,6 +463,10 @@ public:
   Float_t Xd; // X coordinate of point of closest approach to vertex
   Float_t Yd; // Y coordinate of point of closest approach to vertex
   Float_t Zd; // Z coordinate of point of closest approach to vertex
+
+  Float_t XFirstHit; // X coordinate of point of closest approach to vertex
+  Float_t YFirstHit; // Y coordinate of point of closest approach to vertex
+  Float_t ZFirstHit; // Z coordinate of point of closest approach to vertex
 
   Float_t L; // track path length
   Float_t D0; // track transverse impact parameter
@@ -495,7 +506,7 @@ public:
   TLorentzVector P4() const;
   TMatrixDSym CovarianceMatrix() const;
 
-  ClassDef(Track, 3)
+  ClassDef(Track, 4)
 };
 
 //---------------------------------------------------------------------------
@@ -509,13 +520,22 @@ public:
 
   Float_t E; // calorimeter tower energy
 
-  Float_t T; // ecal deposit time, averaged by sqrt(EM energy) over all particles, not smeared
+  Float_t T; // calo deposit time, averaged by sqrt(EM energy) over all particles
+  Float_t X; // calo tower position
+  Float_t Y; // calo tower position
+  Float_t Z; // calo tower position
+
   Int_t NTimeHits; // number of hits contributing to time measurement
 
   Float_t Eem; // calorimeter tower electromagnetic energy
   Float_t Ehad; // calorimeter tower hadronic energy
+  Float_t Etrk; // total charged energy hitting tower
 
   Float_t Edges[4]; // calorimeter tower edges
+
+  Int_t IsPU; // 0 or 1 for particles from pile-up interactions
+  Int_t IsRecoPU; // 0 or 1 for reconstructed particles from pile-up
+  Float_t HardEnergyFraction; // fraction of hard scattering vs PU energy
 
   TRefArray Particles; // references to generated particles
 
@@ -524,7 +544,7 @@ public:
 
   TLorentzVector P4() const;
 
-  ClassDef(Tower, 2)
+  ClassDef(Tower, 5)
 };
 
 //---------------------------------------------------------------------------
@@ -536,6 +556,10 @@ public:
   Int_t PID; // HEP ID number
 
   Int_t Charge; // track charge
+
+  Int_t IsPU; // 0 or 1 for particles from pile-up interactions
+  Int_t IsRecoPU; // 0 or 1 for reconstructed particles from pile-up
+  Float_t HardEnergyFraction; // fraction of hard scattering vs PU energy in the particle flow candidate
 
   Float_t E; // reconstructed energy [GeV]
   Float_t P; // track momentum
@@ -565,6 +589,10 @@ public:
   Float_t Yd; // Y coordinate of point of closest approach to vertex
   Float_t Zd; // Z coordinate of point of closest approach to vertex
 
+  Float_t XFirstHit; // X coordinate of point of closest approach to vertex
+  Float_t YFirstHit; // Y coordinate of point of closest approach to vertex
+  Float_t ZFirstHit; // Z coordinate of point of closest approach to vertex
+
   Float_t L; // track path length
   Float_t D0; // track transverse impact parameter
   Float_t DZ; // track longitudinal impact parameter
@@ -605,12 +633,13 @@ public:
 
   Float_t Eem; // calorimeter tower electromagnetic energy
   Float_t Ehad; // calorimeter tower hadronic energy
+  Float_t Etrk; // total charged energy hitting tower
 
   Float_t Edges[4]; // calorimeter tower edges
 
   TRefArray Particles; // references to generated particles
 
-  ClassDef(ParticleFlowCandidate, 2)
+  ClassDef(ParticleFlowCandidate, 4)
 
 };
 
@@ -636,6 +665,34 @@ public:
   const CompBase *GetCompare() const { return fgCompare; }
 
   ClassDef(HectorHit, 1)
+};
+//---------------------------------------------------------------------------
+
+class CscCluster: public SortableObject
+{
+public:
+  Float_t Eta; // eta of LLP
+  Float_t Phi; // phi of LLP
+  Float_t PT; // pt of LLP
+  Float_t Px; // px of LLP
+  Float_t Py; // py of LLP
+  Float_t Pz; // pz of LLP
+  Float_t E; // E of LLP
+  Float_t Ehad; // had energy of LLP
+  Float_t Eem; // em energy of LLP
+  Float_t pid; // LLP pid
+  Float_t T; // LLP decay time-photon travel time
+  Float_t X; // LLP decay x
+  Float_t Y; // LLP decay y
+  Float_t Z; // LLP decay z
+  Float_t R; // LLP decay z
+  Float_t beta; // LLP beta
+  Float_t ctau; // LLP ctau
+
+  static CompBase *fgCompare; //!
+  const CompBase *GetCompare() const { return fgCompare; }
+
+  ClassDef(CscCluster, 5)
 };
 
 //---------------------------------------------------------------------------
@@ -665,6 +722,7 @@ public:
   UInt_t Flavor;
   UInt_t FlavorAlgo;
   UInt_t FlavorPhys;
+  UInt_t TauFlavor;
 
   UInt_t BTag;
   UInt_t BTagAlgo;
@@ -675,12 +733,13 @@ public:
 
   Float_t Eem;
   Float_t Ehad;
+  Float_t Etrk;
 
   Float_t Edges[4];
   Float_t DeltaEta;
   Float_t DeltaPhi;
 
-  TLorentzVector Momentum, Position, InitialPosition, PositionError, Area;
+  TLorentzVector Momentum, Position, InitialPosition, PositionError, DecayPosition, Area;
 
   Float_t L; // path length
   Float_t DZ;
@@ -706,6 +765,10 @@ public:
   Float_t Yd;
   Float_t Zd;
 
+  Float_t XFirstHit;
+  Float_t YFirstHit;
+  Float_t ZFirstHit;
+
   // tracking resolution
 
   Float_t TrackResolution;
@@ -719,9 +782,8 @@ public:
   Float_t MeanSqDeltaR;
   Float_t PTD;
   Float_t FracPt[5];
-  Float_t NeutralEnergyFraction;  // charged energy fraction
-  Float_t ChargedEnergyFraction;  // neutral energy fraction
-
+  Float_t NeutralEnergyFraction; // charged energy fraction
+  Float_t ChargedEnergyFraction; // neutral energy fraction
 
   // Timing information
 
@@ -774,6 +836,7 @@ public:
   Int_t NSubJetsSoftDropped; // number of subjets soft-dropped
 
   // Exclusive clustering variables
+  Double_t ExclYmerge12;
   Double_t ExclYmerge23;
   Double_t ExclYmerge34;
   Double_t ExclYmerge45;

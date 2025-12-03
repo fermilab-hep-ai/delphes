@@ -5,13 +5,16 @@
 #include <TString.h>
 
 // Class to create geometry for solenoid geometry
+// Simplified implementations with cylindrical and disk layers
+//
+// Author: F. Bedeschi, INFN - Pisa
 
 class SolGeom{
   //
   // Units are m
   //
 private:
-  const Int_t fNlMax = 200; // Maximum number of layers
+  const Int_t fNlMax = 700; // Maximum number of layers
 
   // B field
   Double_t fB; // B field in Tesla
@@ -36,13 +39,20 @@ private:
   Double_t *fsgLayU; // Resolution Upper side (meters) - 0 = no measurement
   Double_t *fsgLayL; // Resolution Lower side (meters) - 0 = no measurement
   Bool_t   *fflLay;  // measurement flag = T, scattering only = F
+//
+//
+  Double_t fRmin;	// Radius of first barrel layer
+  Double_t fZminPos;	// Z of first disk in positive direction
+  Double_t fZminNeg;	// Z of first disk in negative direction
+  void SetMinBoundaries();	// define inner box for fast simulation
 
 public:
   SolGeom();
   ~SolGeom();
 
   void Read(const char *data);
-
+  void SetBz(const Double_t Bz);
+  
   Double_t B()                     { return fB; }
   Int_t    Nl()                    { return fNlay; }
   Int_t    Nm()                    { return fNm; }
@@ -60,6 +70,12 @@ public:
   Double_t lSgU(Int_t nlayer)      { return fsgLayU[nlayer]; }
   Double_t lSgL(Int_t nlayer)      { return fsgLayL[nlayer]; }
   Bool_t   isMeasure(Int_t nlayer) { return fflLay[nlayer]; }
+  //
+  // Define cylindrical box to use for fast simulation
+  //
+  Double_t GetRmin() { return fRmin; }
+  Double_t GetZminPos() { return fZminPos; }
+  Double_t GetZminNeg() { return fZminNeg; }
 };
 
 #endif

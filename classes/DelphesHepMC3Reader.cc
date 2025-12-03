@@ -338,7 +338,7 @@ bool DelphesHepMC3Reader::ReadBlock(DelphesFactory *factory,
 
 //---------------------------------------------------------------------------
 
-void DelphesHepMC3Reader::AnalyzeEvent(ExRootTreeBranch *branch, long long eventNumber,
+void DelphesHepMC3Reader::AnalyzeEvent(ExRootTreeBranch *branch, long long /*eventNumber*/,
   TStopwatch *readStopWatch, TStopwatch *procStopWatch)
 {
   HepMCEvent *element;
@@ -457,12 +457,14 @@ void DelphesHepMC3Reader::FinalizeParticles(TObjArray *allParticleOutputArray,
   TLorentzVector *position;
   TObjArray *array;
   Candidate *candidate;
+  Candidate *candidateDaughter;
   TParticlePDG *pdgParticle;
   int pdgCode;
   map<int, int >::iterator itVertexMap;
   map<int, pair<int, int> >::iterator itMotherMap;
   map<int, pair<int, int> >::iterator itDaughterMap;
-  int i, j, code, counter;
+  size_t i;
+  int j, code, counter;
 
   counter = 0;
   for(i = 0; i < fVertices.size(); ++i)
@@ -544,9 +546,9 @@ void DelphesHepMC3Reader::FinalizeParticles(TObjArray *allParticleOutputArray,
     }
   }
 
-  for(i = 0; i < allParticleOutputArray->GetEntriesFast(); ++i)
+  for(j = 0; j < allParticleOutputArray->GetEntriesFast(); ++j)
   {
-    candidate = static_cast<Candidate *>(allParticleOutputArray->At(i));
+    candidate = static_cast<Candidate *>(allParticleOutputArray->At(j));
 
     itMotherMap = fMotherMap.find(candidate->M1);
     if(itMotherMap == fMotherMap.end())
@@ -572,11 +574,16 @@ void DelphesHepMC3Reader::FinalizeParticles(TObjArray *allParticleOutputArray,
       {
         candidate->D1 = -1;
         candidate->D2 = -1;
+        const TLorentzVector &decayPosition = candidate->Position;
+        candidate->DecayPosition.SetXYZT(decayPosition.X(), decayPosition.Y(), decayPosition.Z(), decayPosition.T());// decay position
       }
       else
       {
         candidate->D1 = itDaughterMap->second.first;
         candidate->D2 = itDaughterMap->second.second;
+        candidateDaughter = static_cast<Candidate *>(allParticleOutputArray->At(candidate->D1));
+        const TLorentzVector &decayPosition = candidateDaughter->Position;
+        candidate->DecayPosition.SetXYZT(decayPosition.X(), decayPosition.Y(), decayPosition.Z(), decayPosition.T());// decay position
       }
     }
   }

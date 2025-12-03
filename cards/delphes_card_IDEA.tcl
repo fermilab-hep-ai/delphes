@@ -1,3 +1,5 @@
+set RandomSeed 123
+
 ####################################################################                                l
 # FCC-ee IDEA detector model
 #
@@ -8,7 +10,11 @@
 #        michele.selvaggi@cern.ch
 #####################################################################
 
+## MOD2: set vtx mode timing to MC truth
+
 set B 2.0
+set R 2.25
+set HL 2.5
 
 ## Drift chamber coordinates
 set DCHZMIN -2.125
@@ -37,13 +43,20 @@ set ExecutionPath {
   TimeOfFlight
 
   TrackMerger
+  ForwardLooperTracks
   Calorimeter
+
+  TimeSmearingNeutrals
+  TimeOfFlightNeutralHadron
+
+  EFlowTrackMerger
   EFlowMerger
 
   PhotonEfficiency
   PhotonIsolation
 
   MuonFilter
+  TowerMerger
 
   ElectronFilter
   ElectronEfficiency
@@ -59,12 +72,15 @@ set ExecutionPath {
   GenMissingET
 
   FastJetFinder
-
   JetEnergyScale
+
+  GenJetFinderDurhamN2
+  FastJetFinderDurhamN2
 
   JetFlavorAssociation
 
   BTagging
+  CTagging
   TauTagging
 
   TreeWriter
@@ -83,6 +99,7 @@ module TruthVertexFinder TruthVertexFinder {
   set VertexOutputArray vertices
 }
 
+
 #################################
 # Propagate particles in cylinder
 #################################
@@ -96,10 +113,10 @@ module ParticlePropagator ParticlePropagator {
   set MuonOutputArray muons
 
   # inner radius of the solenoid, in m
-  set Radius 2.25
+  set Radius $R
 
   # half-length: z of the solenoid, in m
-  set HalfLength 2.5
+  set HalfLength $HL
 
   # magnetic field, in T
   set Bz $B
@@ -114,13 +131,10 @@ module Efficiency ChargedHadronTrackingEfficiency {
     set OutputArray chargedHadrons
     set UseMomentumVector true
 
-    # We use only one efficiency, we set only 0 effincency out of eta bounds:
-
     set EfficiencyFormula {
-        (abs(eta) > 3.0)                                       * (0.000) +
-        (pt >= 0.5) * (abs(eta) <= 3.0)                    * (0.997) +
-        (pt < 0.5 && pt >= 0.3) * (abs(eta) <= 3.0)    * (0.65) +
-        (pt < 0.3) * (abs(eta) <= 3.0)                     * (0.06)
+        (abs(eta) > 2.56)                                  * (0.000) +
+        (pt < 0.1) * (abs(eta) <= 2.56)       * (0.000) +
+        (pt >= 0.1) * (abs(eta) <= 2.56)      * (1.000)
     }
 }
 
@@ -135,12 +149,10 @@ module Efficiency ElectronTrackingEfficiency {
     set OutputArray electrons
     set UseMomentumVector true
 
-    # Current full simulation with CLICdet provides for electrons:
     set EfficiencyFormula {
-        (abs(eta) > 3.0)                                       * (0.000) +
-        (pt >= 0.5) * (abs(eta) <= 3.0)                    * (0.997) +
-        (pt < 0.5 && pt >= 0.3) * (abs(eta) <= 3.0)    * (0.65) +
-        (pt < 0.3) * (abs(eta) <= 3.0)                     * (0.06)
+        (abs(eta) > 2.56)                                  * (0.000) +
+        (pt < 0.1) * (abs(eta) <= 2.56)                    * (0.000) +
+        (pt >= 0.1) * (abs(eta) <= 2.56)                   * (1.000)
     }
 }
 
@@ -154,12 +166,10 @@ module Efficiency MuonTrackingEfficiency {
     set OutputArray muons
     set UseMomentumVector true
 
-    # Current full simulation with CLICdet provides for muons:
     set EfficiencyFormula {
-        (abs(eta) > 3.0)                                       * (0.000) +
-        (pt >= 0.5) * (abs(eta) <= 3.0)                    * (0.997) +
-        (pt < 0.5 && pt >= 0.3) * (abs(eta) <= 3.0)    * (0.65) +
-        (pt < 0.3) * (abs(eta) <= 3.0)                     * (0.06)
+        (abs(eta) > 2.56)                                  * (0.000) +
+        (pt < 0.1) * (abs(eta) <= 2.56)       * (0.000) +
+        (pt >= 0.1) * (abs(eta) <= 2.56)      * (1.000)
     }
 }
 
@@ -174,6 +184,7 @@ module Merger TrackMergerPre {
   add InputArray MuonTrackingEfficiency/muons
   set OutputArray tracks
 }
+
 
 
 ########################################
@@ -191,9 +202,11 @@ module TrackCovariance TrackSmearing {
     ## magnetic field
     set Bz $B
 
-    ## uses https://raw.githubusercontent.com/selvaggi/FastTrackCovariance/master/GeoIDEA_BASE.txt
-    set DetectorGeometry {
+    ## scale factors
+    set ElectronScaleFactor  {1.25}
 
+
+    set DetectorGeometry {
 
       # Layer type 1 = R (barrel) or 2 = z (forward/backward)
       # Layer label
@@ -211,154 +224,147 @@ module TrackCovariance TrackSmearing {
 
       # barrel  name       zmin   zmax   r        w (m)      X0        n_meas  th_up (rad) th_down (rad)    reso_up (m)   reso_down (m)  flag
 
-      # barrel  name       zmin   zmax   r        w (m)      X0        n_meas  th_up (rad) th_down (rad)    reso_up (m)   reso_down (m)  flag
-
-      1        PIPE       -100    100    0.015    0.001655  0.2805     0        0          0                0             0              0
-      1        VTXLOW     -0.12   0.12   0.017    0.00028   0.0937     2        0          1.5708           3e-006        3e-006         1
-      1        VTXLOW     -0.16   0.16   0.023    0.00028   0.0937     2        0          1.5708           3e-006        3e-006         1
-      1        VTXLOW     -0.16   0.16   0.031    0.00028   0.0937     2        0          1.5708           3e-006        3e-006         1
-      1        VTXHIGH    -1      1      0.32     0.00047   0.0937     2        0          1.5708           7e-006        7e-006         1
-      1        VTXHIGH    -1.05   1.05   0.34     0.00047   0.0937     2        0          1.5708           7e-006        7e-006         1
-
-      # endcap  name       rmin   rmax   z        w (m)      X0        n_meas   th_up (rad)  th_down (rad)   reso_up (m)   reso_down (m) flag
-
-      2        VTXDSK      0.141  0.3   -0.92     0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-      2        VTXDSK      0.138  0.3   -0.9      0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-      2        VTXDSK      0.065  0.3   -0.42     0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-      2        VTXDSK      0.062  0.3   -0.4      0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-      2        VTXDSK      0.062  0.3    0.4      0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-      2        VTXDSK      0.065  0.3    0.42     0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-      2        VTXDSK      0.138  0.3    0.9      0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-      2        VTXDSK      0.141  0.3    0.92     0.00028   0.0937     2        0          1.5708           7e-006        7e-006         1
-
-      1 DCHCANI $DCHZMIN $DCHZMAX $DCHRMIN 0.0002 0.237223 0 0 0 0 0 0
-      1 DCH -2 2 0.36 0.0147748 1400 1 0.0203738 0 0.0001 0 1
-      1 DCH -2 2 0.374775 0.0147748 1400 1 -0.0212097 0 0.0001 0 1
-      1 DCH -2 2 0.38955 0.0147748 1400 1 0.0220456 0 0.0001 0 1
-      1 DCH -2 2 0.404324 0.0147748 1400 1 -0.0228814 0 0.0001 0 1
-      1 DCH -2 2 0.419099 0.0147748 1400 1 0.0237172 0 0.0001 0 1
-      1 DCH -2 2 0.433874 0.0147748 1400 1 -0.024553 0 0.0001 0 1
-      1 DCH -2 2 0.448649 0.0147748 1400 1 0.0253888 0 0.0001 0 1
-      1 DCH -2 2 0.463423 0.0147748 1400 1 -0.0262245 0 0.0001 0 1
-      1 DCH -2 2 0.478198 0.0147748 1400 1 0.0270602 0 0.0001 0 1
-      1 DCH -2 2 0.492973 0.0147748 1400 1 -0.0278958 0 0.0001 0 1
-      1 DCH -2 2 0.507748 0.0147748 1400 1 0.0287314 0 0.0001 0 1
-      1 DCH -2 2 0.522523 0.0147748 1400 1 -0.029567 0 0.0001 0 1
-      1 DCH -2 2 0.537297 0.0147748 1400 1 0.0304025 0 0.0001 0 1
-      1 DCH -2 2 0.552072 0.0147748 1400 1 -0.031238 0 0.0001 0 1
-      1 DCH -2 2 0.566847 0.0147748 1400 1 0.0320734 0 0.0001 0 1
-      1 DCH -2 2 0.581622 0.0147748 1400 1 -0.0329088 0 0.0001 0 1
-      1 DCH -2 2 0.596396 0.0147748 1400 1 0.0337442 0 0.0001 0 1
-      1 DCH -2 2 0.611171 0.0147748 1400 1 -0.0345795 0 0.0001 0 1
-      1 DCH -2 2 0.625946 0.0147748 1400 1 0.0354147 0 0.0001 0 1
-      1 DCH -2 2 0.640721 0.0147748 1400 1 -0.0362499 0 0.0001 0 1
-      1 DCH -2 2 0.655495 0.0147748 1400 1 0.0370851 0 0.0001 0 1
-      1 DCH -2 2 0.67027 0.0147748 1400 1 -0.0379202 0 0.0001 0 1
-      1 DCH -2 2 0.685045 0.0147748 1400 1 0.0387552 0 0.0001 0 1
-      1 DCH -2 2 0.69982 0.0147748 1400 1 -0.0395902 0 0.0001 0 1
-      1 DCH -2 2 0.714595 0.0147748 1400 1 0.0404252 0 0.0001 0 1
-      1 DCH -2 2 0.729369 0.0147748 1400 1 -0.04126 0 0.0001 0 1
-      1 DCH -2 2 0.744144 0.0147748 1400 1 0.0420949 0 0.0001 0 1
-      1 DCH -2 2 0.758919 0.0147748 1400 1 -0.0429296 0 0.0001 0 1
-      1 DCH -2 2 0.773694 0.0147748 1400 1 0.0437643 0 0.0001 0 1
-      1 DCH -2 2 0.788468 0.0147748 1400 1 -0.044599 0 0.0001 0 1
-      1 DCH -2 2 0.803243 0.0147748 1400 1 0.0454336 0 0.0001 0 1
-      1 DCH -2 2 0.818018 0.0147748 1400 1 -0.0462681 0 0.0001 0 1
-      1 DCH -2 2 0.832793 0.0147748 1400 1 0.0471025 0 0.0001 0 1
-      1 DCH -2 2 0.847568 0.0147748 1400 1 -0.0479369 0 0.0001 0 1
-      1 DCH -2 2 0.862342 0.0147748 1400 1 0.0487713 0 0.0001 0 1
-      1 DCH -2 2 0.877117 0.0147748 1400 1 -0.0496055 0 0.0001 0 1
-      1 DCH -2 2 0.891892 0.0147748 1400 1 0.0504397 0 0.0001 0 1
-      1 DCH -2 2 0.906667 0.0147748 1400 1 -0.0512738 0 0.0001 0 1
-      1 DCH -2 2 0.921441 0.0147748 1400 1 0.0521079 0 0.0001 0 1
-      1 DCH -2 2 0.936216 0.0147748 1400 1 -0.0529418 0 0.0001 0 1
-      1 DCH -2 2 0.950991 0.0147748 1400 1 0.0537757 0 0.0001 0 1
-      1 DCH -2 2 0.965766 0.0147748 1400 1 -0.0546095 0 0.0001 0 1
-      1 DCH -2 2 0.980541 0.0147748 1400 1 0.0554433 0 0.0001 0 1
-      1 DCH -2 2 0.995315 0.0147748 1400 1 -0.056277 0 0.0001 0 1
-      1 DCH -2 2 1.01009 0.0147748 1400 1 0.0571106 0 0.0001 0 1
-      1 DCH -2 2 1.02486 0.0147748 1400 1 -0.0579441 0 0.0001 0 1
-      1 DCH -2 2 1.03964 0.0147748 1400 1 0.0587775 0 0.0001 0 1
-      1 DCH -2 2 1.05441 0.0147748 1400 1 -0.0596108 0 0.0001 0 1
-      1 DCH -2 2 1.06919 0.0147748 1400 1 0.0604441 0 0.0001 0 1
-      1 DCH -2 2 1.08396 0.0147748 1400 1 -0.0612773 0 0.0001 0 1
-      1 DCH -2 2 1.09874 0.0147748 1400 1 0.0621104 0 0.0001 0 1
-      1 DCH -2 2 1.11351 0.0147748 1400 1 -0.0629434 0 0.0001 0 1
-      1 DCH -2 2 1.12829 0.0147748 1400 1 0.0637763 0 0.0001 0 1
-      1 DCH -2 2 1.14306 0.0147748 1400 1 -0.0646092 0 0.0001 0 1
-      1 DCH -2 2 1.15784 0.0147748 1400 1 0.0654419 0 0.0001 0 1
-      1 DCH -2 2 1.17261 0.0147748 1400 1 -0.0662746 0 0.0001 0 1
-      1 DCH -2 2 1.18739 0.0147748 1400 1 0.0671071 0 0.0001 0 1
-      1 DCH -2 2 1.20216 0.0147748 1400 1 -0.0679396 0 0.0001 0 1
-      1 DCH -2 2 1.21694 0.0147748 1400 1 0.068772 0 0.0001 0 1
-      1 DCH -2 2 1.23171 0.0147748 1400 1 -0.0696042 0 0.0001 0 1
-      1 DCH -2 2 1.24649 0.0147748 1400 1 0.0704364 0 0.0001 0 1
-      1 DCH -2 2 1.26126 0.0147748 1400 1 -0.0712685 0 0.0001 0 1
-      1 DCH -2 2 1.27604 0.0147748 1400 1 0.0721005 0 0.0001 0 1
-      1 DCH -2 2 1.29081 0.0147748 1400 1 -0.0729324 0 0.0001 0 1
-      1 DCH -2 2 1.30559 0.0147748 1400 1 0.0737642 0 0.0001 0 1
-      1 DCH -2 2 1.32036 0.0147748 1400 1 -0.0745958 0 0.0001 0 1
-      1 DCH -2 2 1.33514 0.0147748 1400 1 0.0754274 0 0.0001 0 1
-      1 DCH -2 2 1.34991 0.0147748 1400 1 -0.0762589 0 0.0001 0 1
-      1 DCH -2 2 1.36468 0.0147748 1400 1 0.0770903 0 0.0001 0 1
-      1 DCH -2 2 1.37946 0.0147748 1400 1 -0.0779215 0 0.0001 0 1
-      1 DCH -2 2 1.39423 0.0147748 1400 1 0.0787527 0 0.0001 0 1
-      1 DCH -2 2 1.40901 0.0147748 1400 1 -0.0795837 0 0.0001 0 1
-      1 DCH -2 2 1.42378 0.0147748 1400 1 0.0804147 0 0.0001 0 1
-      1 DCH -2 2 1.43856 0.0147748 1400 1 -0.0812455 0 0.0001 0 1
-      1 DCH -2 2 1.45333 0.0147748 1400 1 0.0820762 0 0.0001 0 1
-      1 DCH -2 2 1.46811 0.0147748 1400 1 -0.0829068 0 0.0001 0 1
-      1 DCH -2 2 1.48288 0.0147748 1400 1 0.0837373 0 0.0001 0 1
-      1 DCH -2 2 1.49766 0.0147748 1400 1 -0.0845677 0 0.0001 0 1
-      1 DCH -2 2 1.51243 0.0147748 1400 1 0.0853979 0 0.0001 0 1
-      1 DCH -2 2 1.52721 0.0147748 1400 1 -0.086228 0 0.0001 0 1
-      1 DCH -2 2 1.54198 0.0147748 1400 1 0.087058 0 0.0001 0 1
-      1 DCH -2 2 1.55676 0.0147748 1400 1 -0.0878879 0 0.0001 0 1
-      1 DCH -2 2 1.57153 0.0147748 1400 1 0.0887177 0 0.0001 0 1
-      1 DCH -2 2 1.58631 0.0147748 1400 1 -0.0895474 0 0.0001 0 1
-      1 DCH -2 2 1.60108 0.0147748 1400 1 0.0903769 0 0.0001 0 1
-      1 DCH -2 2 1.61586 0.0147748 1400 1 -0.0912063 0 0.0001 0 1
-      1 DCH -2 2 1.63063 0.0147748 1400 1 0.0920356 0 0.0001 0 1
-      1 DCH -2 2 1.64541 0.0147748 1400 1 -0.0928647 0 0.0001 0 1
-      1 DCH -2 2 1.66018 0.0147748 1400 1 0.0936937 0 0.0001 0 1
-      1 DCH -2 2 1.67495 0.0147748 1400 1 -0.0945226 0 0.0001 0 1
-      1 DCH -2 2 1.68973 0.0147748 1400 1 0.0953514 0 0.0001 0 1
-      1 DCH -2 2 1.7045 0.0147748 1400 1 -0.09618 0 0.0001 0 1
-      1 DCH -2 2 1.71928 0.0147748 1400 1 0.0970085 0 0.0001 0 1
-      1 DCH -2 2 1.73405 0.0147748 1400 1 -0.0978369 0 0.0001 0 1
-      1 DCH -2 2 1.74883 0.0147748 1400 1 0.0986651 0 0.0001 0 1
-      1 DCH -2 2 1.7636 0.0147748 1400 1 -0.0994932 0 0.0001 0 1
-      1 DCH -2 2 1.77838 0.0147748 1400 1 0.100321 0 0.0001 0 1
-      1 DCH -2 2 1.79315 0.0147748 1400 1 -0.101149 0 0.0001 0 1
-      1 DCH -2 2 1.80793 0.0147748 1400 1 0.101977 0 0.0001 0 1
-      1 DCH -2 2 1.8227 0.0147748 1400 1 -0.102804 0 0.0001 0 1
-      1 DCH -2 2 1.83748 0.0147748 1400 1 0.103632 0 0.0001 0 1
-      1 DCH -2 2 1.85225 0.0147748 1400 1 -0.104459 0 0.0001 0 1
-      1 DCH -2 2 1.86703 0.0147748 1400 1 0.105286 0 0.0001 0 1
-      1 DCH -2 2 1.8818 0.0147748 1400 1 -0.106113 0 0.0001 0 1
-      1 DCH -2 2 1.89658 0.0147748 1400 1 0.10694 0 0.0001 0 1
-      1 DCH -2 2 1.91135 0.0147748 1400 1 -0.107766 0 0.0001 0 1
-      1 DCH -2 2 1.92613 0.0147748 1400 1 0.108593 0 0.0001 0 1
-      1 DCH -2 2 1.9409 0.0147748 1400 1 -0.109419 0 0.0001 0 1
-      1 DCH -2 2 1.95568 0.0147748 1400 1 0.110246 0 0.0001 0 1
-      1 DCH -2 2 1.97045 0.0147748 1400 1 -0.111072 0 0.0001 0 1
-      1 DCH -2 2 1.98523 0.0147748 1400 1 0.111898 0 0.0001 0 1
-      1 DCH -2 2 2 0.0147748 1400 1 -0.112723 0 0.0001 0 1
-      1 DCHCANO $DCHZMIN $DCHZMAX $DCHRMAX $DCHRMAX 0.02 1.667 0 0 0 0 0 0
+      1 PIPE -100 100 0.01 0.00235 0.35276 0 0 0 0 0 0
+      1 VTXLOW -0.0965 0.0965 0.0137 0.00028 0.0937 2 0 1.5708 3e-006 3e-006 1
+      1 VTXLOW -0.1609 0.1609 0.0227 0.00028 0.0937 2 0 1.5708 3e-006 3e-006 1
+      1 VTXLOW -0.2575 0.2575 0.034 0.00028 0.0937 2 0 1.5708 3e-006 3e-006 1
+      1 VTXHIGH -0.1631 0.1631 0.14 0.00047 0.0937 2 0 1.5708 7e-006 7e-006 1
+      1 VTXHIGH -0.3263 0.3263 0.315 0.00047 0.0937 2 0 1.5708 7e-006 7e-006 1
+      1 DCHCANI -2.125 2.125 0.345 0.0002 0.237223 0 0 0 0 0 0
+      1 DCH -2 2 0.36 0.0147748 579 1 0.0203738 0 0.0001 0 1
+      1 DCH -2 2 0.374775 0.0147748 579 1 -0.0212097 0 0.0001 0 1
+      1 DCH -2 2 0.38955 0.0147748 579 1 0.0220456 0 0.0001 0 1
+      1 DCH -2 2 0.404324 0.0147748 579 1 -0.0228814 0 0.0001 0 1
+      1 DCH -2 2 0.419099 0.0147748 579 1 0.0237172 0 0.0001 0 1
+      1 DCH -2 2 0.433874 0.0147748 579 1 -0.024553 0 0.0001 0 1
+      1 DCH -2 2 0.448649 0.0147748 579 1 0.0253888 0 0.0001 0 1
+      1 DCH -2 2 0.463423 0.0147748 579 1 -0.0262245 0 0.0001 0 1
+      1 DCH -2 2 0.478198 0.0147748 579 1 0.0270602 0 0.0001 0 1
+      1 DCH -2 2 0.492973 0.0147748 579 1 -0.0278958 0 0.0001 0 1
+      1 DCH -2 2 0.507748 0.0147748 579 1 0.0287314 0 0.0001 0 1
+      1 DCH -2 2 0.522523 0.0147748 579 1 -0.029567 0 0.0001 0 1
+      1 DCH -2 2 0.537297 0.0147748 579 1 0.0304025 0 0.0001 0 1
+      1 DCH -2 2 0.552072 0.0147748 579 1 -0.031238 0 0.0001 0 1
+      1 DCH -2 2 0.566847 0.0147748 579 1 0.0320734 0 0.0001 0 1
+      1 DCH -2 2 0.581622 0.0147748 579 1 -0.0329088 0 0.0001 0 1
+      1 DCH -2 2 0.596396 0.0147748 579 1 0.0337442 0 0.0001 0 1
+      1 DCH -2 2 0.611171 0.0147748 579 1 -0.0345795 0 0.0001 0 1
+      1 DCH -2 2 0.625946 0.0147748 579 1 0.0354147 0 0.0001 0 1
+      1 DCH -2 2 0.640721 0.0147748 579 1 -0.0362499 0 0.0001 0 1
+      1 DCH -2 2 0.655495 0.0147748 579 1 0.0370851 0 0.0001 0 1
+      1 DCH -2 2 0.67027 0.0147748 579 1 -0.0379202 0 0.0001 0 1
+      1 DCH -2 2 0.685045 0.0147748 579 1 0.0387552 0 0.0001 0 1
+      1 DCH -2 2 0.69982 0.0147748 579 1 -0.0395902 0 0.0001 0 1
+      1 DCH -2 2 0.714595 0.0147748 579 1 0.0404252 0 0.0001 0 1
+      1 DCH -2 2 0.729369 0.0147748 579 1 -0.04126 0 0.0001 0 1
+      1 DCH -2 2 0.744144 0.0147748 579 1 0.0420949 0 0.0001 0 1
+      1 DCH -2 2 0.758919 0.0147748 579 1 -0.0429296 0 0.0001 0 1
+      1 DCH -2 2 0.773694 0.0147748 579 1 0.0437643 0 0.0001 0 1
+      1 DCH -2 2 0.788468 0.0147748 579 1 -0.044599 0 0.0001 0 1
+      1 DCH -2 2 0.803243 0.0147748 579 1 0.0454336 0 0.0001 0 1
+      1 DCH -2 2 0.818018 0.0147748 579 1 -0.0462681 0 0.0001 0 1
+      1 DCH -2 2 0.832793 0.0147748 579 1 0.0471025 0 0.0001 0 1
+      1 DCH -2 2 0.847568 0.0147748 579 1 -0.0479369 0 0.0001 0 1
+      1 DCH -2 2 0.862342 0.0147748 579 1 0.0487713 0 0.0001 0 1
+      1 DCH -2 2 0.877117 0.0147748 579 1 -0.0496055 0 0.0001 0 1
+      1 DCH -2 2 0.891892 0.0147748 579 1 0.0504397 0 0.0001 0 1
+      1 DCH -2 2 0.906667 0.0147748 579 1 -0.0512738 0 0.0001 0 1
+      1 DCH -2 2 0.921441 0.0147748 579 1 0.0521079 0 0.0001 0 1
+      1 DCH -2 2 0.936216 0.0147748 579 1 -0.0529418 0 0.0001 0 1
+      1 DCH -2 2 0.950991 0.0147748 579 1 0.0537757 0 0.0001 0 1
+      1 DCH -2 2 0.965766 0.0147748 579 1 -0.0546095 0 0.0001 0 1
+      1 DCH -2 2 0.980541 0.0147748 579 1 0.0554433 0 0.0001 0 1
+      1 DCH -2 2 0.995315 0.0147748 579 1 -0.056277 0 0.0001 0 1
+      1 DCH -2 2 1.01009 0.0147748 579 1 0.0571106 0 0.0001 0 1
+      1 DCH -2 2 1.02486 0.0147748 579 1 -0.0579441 0 0.0001 0 1
+      1 DCH -2 2 1.03964 0.0147748 579 1 0.0587775 0 0.0001 0 1
+      1 DCH -2 2 1.05441 0.0147748 579 1 -0.0596108 0 0.0001 0 1
+      1 DCH -2 2 1.06919 0.0147748 579 1 0.0604441 0 0.0001 0 1
+      1 DCH -2 2 1.08396 0.0147748 579 1 -0.0612773 0 0.0001 0 1
+      1 DCH -2 2 1.09874 0.0147748 579 1 0.0621104 0 0.0001 0 1
+      1 DCH -2 2 1.11351 0.0147748 579 1 -0.0629434 0 0.0001 0 1
+      1 DCH -2 2 1.12829 0.0147748 579 1 0.0637763 0 0.0001 0 1
+      1 DCH -2 2 1.14306 0.0147748 579 1 -0.0646092 0 0.0001 0 1
+      1 DCH -2 2 1.15784 0.0147748 579 1 0.0654419 0 0.0001 0 1
+      1 DCH -2 2 1.17261 0.0147748 579 1 -0.0662746 0 0.0001 0 1
+      1 DCH -2 2 1.18739 0.0147748 579 1 0.0671071 0 0.0001 0 1
+      1 DCH -2 2 1.20216 0.0147748 579 1 -0.0679396 0 0.0001 0 1
+      1 DCH -2 2 1.21694 0.0147748 579 1 0.068772 0 0.0001 0 1
+      1 DCH -2 2 1.23171 0.0147748 579 1 -0.0696042 0 0.0001 0 1
+      1 DCH -2 2 1.24649 0.0147748 579 1 0.0704364 0 0.0001 0 1
+      1 DCH -2 2 1.26126 0.0147748 579 1 -0.0712685 0 0.0001 0 1
+      1 DCH -2 2 1.27604 0.0147748 579 1 0.0721005 0 0.0001 0 1
+      1 DCH -2 2 1.29081 0.0147748 579 1 -0.0729324 0 0.0001 0 1
+      1 DCH -2 2 1.30559 0.0147748 579 1 0.0737642 0 0.0001 0 1
+      1 DCH -2 2 1.32036 0.0147748 579 1 -0.0745958 0 0.0001 0 1
+      1 DCH -2 2 1.33514 0.0147748 579 1 0.0754274 0 0.0001 0 1
+      1 DCH -2 2 1.34991 0.0147748 579 1 -0.0762589 0 0.0001 0 1
+      1 DCH -2 2 1.36468 0.0147748 579 1 0.0770903 0 0.0001 0 1
+      1 DCH -2 2 1.37946 0.0147748 579 1 -0.0779215 0 0.0001 0 1
+      1 DCH -2 2 1.39423 0.0147748 579 1 0.0787527 0 0.0001 0 1
+      1 DCH -2 2 1.40901 0.0147748 579 1 -0.0795837 0 0.0001 0 1
+      1 DCH -2 2 1.42378 0.0147748 579 1 0.0804147 0 0.0001 0 1
+      1 DCH -2 2 1.43856 0.0147748 579 1 -0.0812455 0 0.0001 0 1
+      1 DCH -2 2 1.45333 0.0147748 579 1 0.0820762 0 0.0001 0 1
+      1 DCH -2 2 1.46811 0.0147748 579 1 -0.0829068 0 0.0001 0 1
+      1 DCH -2 2 1.48288 0.0147748 579 1 0.0837373 0 0.0001 0 1
+      1 DCH -2 2 1.49766 0.0147748 579 1 -0.0845677 0 0.0001 0 1
+      1 DCH -2 2 1.51243 0.0147748 579 1 0.0853979 0 0.0001 0 1
+      1 DCH -2 2 1.52721 0.0147748 579 1 -0.086228 0 0.0001 0 1
+      1 DCH -2 2 1.54198 0.0147748 579 1 0.087058 0 0.0001 0 1
+      1 DCH -2 2 1.55676 0.0147748 579 1 -0.0878879 0 0.0001 0 1
+      1 DCH -2 2 1.57153 0.0147748 579 1 0.0887177 0 0.0001 0 1
+      1 DCH -2 2 1.58631 0.0147748 579 1 -0.0895474 0 0.0001 0 1
+      1 DCH -2 2 1.60108 0.0147748 579 1 0.0903769 0 0.0001 0 1
+      1 DCH -2 2 1.61586 0.0147748 579 1 -0.0912063 0 0.0001 0 1
+      1 DCH -2 2 1.63063 0.0147748 579 1 0.0920356 0 0.0001 0 1
+      1 DCH -2 2 1.64541 0.0147748 579 1 -0.0928647 0 0.0001 0 1
+      1 DCH -2 2 1.66018 0.0147748 579 1 0.0936937 0 0.0001 0 1
+      1 DCH -2 2 1.67495 0.0147748 579 1 -0.0945226 0 0.0001 0 1
+      1 DCH -2 2 1.68973 0.0147748 579 1 0.0953514 0 0.0001 0 1
+      1 DCH -2 2 1.7045 0.0147748 579 1 -0.09618 0 0.0001 0 1
+      1 DCH -2 2 1.71928 0.0147748 579 1 0.0970085 0 0.0001 0 1
+      1 DCH -2 2 1.73405 0.0147748 579 1 -0.0978369 0 0.0001 0 1
+      1 DCH -2 2 1.74883 0.0147748 579 1 0.0986651 0 0.0001 0 1
+      1 DCH -2 2 1.7636 0.0147748 579 1 -0.0994932 0 0.0001 0 1
+      1 DCH -2 2 1.77838 0.0147748 579 1 0.100321 0 0.0001 0 1
+      1 DCH -2 2 1.79315 0.0147748 579 1 -0.101149 0 0.0001 0 1
+      1 DCH -2 2 1.80793 0.0147748 579 1 0.101977 0 0.0001 0 1
+      1 DCH -2 2 1.8227 0.0147748 579 1 -0.102804 0 0.0001 0 1
+      1 DCH -2 2 1.83748 0.0147748 579 1 0.103632 0 0.0001 0 1
+      1 DCH -2 2 1.85225 0.0147748 579 1 -0.104459 0 0.0001 0 1
+      1 DCH -2 2 1.86703 0.0147748 579 1 0.105286 0 0.0001 0 1
+      1 DCH -2 2 1.8818 0.0147748 579 1 -0.106113 0 0.0001 0 1
+      1 DCH -2 2 1.89658 0.0147748 579 1 0.10694 0 0.0001 0 1
+      1 DCH -2 2 1.91135 0.0147748 579 1 -0.107766 0 0.0001 0 1
+      1 DCH -2 2 1.92613 0.0147748 579 1 0.108593 0 0.0001 0 1
+      1 DCH -2 2 1.9409 0.0147748 579 1 -0.109419 0 0.0001 0 1
+      1 DCH -2 2 1.95568 0.0147748 579 1 0.110246 0 0.0001 0 1
+      1 DCH -2 2 1.97045 0.0147748 579 1 -0.111072 0 0.0001 0 1
+      1 DCH -2 2 1.98523 0.0147748 579 1 0.111898 0 0.0001 0 1
+      1 DCH -2 2 2 0.0147748 579 1 -0.112723 0 0.0001 0 1
+      1 DCHCANO -2.125 2.125 2.02 0.02 1.667 0 0 0 0 0 0
       1 BSILWRP -2.35 2.35 2.04 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
       1 BSILWRP -2.35 2.35 2.06 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
       1 MAG -2.5 2.5 2.25 0.05 0.0658 0 0 0 0 0 0
       1 BPRESH -2.55 2.55 2.45 0.02 1 2 0 1.5708 7e-005 0.01 1
-      2 DCHWALL $DCHRMIN $DCHRMAX $DCHZMAX 0.25 5.55 0 0 0 0 0 0
-      2 DCHWALL $DCHRMIN $DCHRMAX $DCHZMIN 0.25 5.55 0 0 0 0 0 0
-      2 FSILWRP 0.354 2.02 -2.32 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
-      2 FSILWRP 0.35 2.02 -2.3 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
-      2 FSILWRP 0.35 2.02 2.3 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
-      2 FSILWRP 0.354 2.02 2.32 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
+      2 VTXDSK 0.105 0.315 -0.9186 0.00028 0.0937 2 0 1.5708 7e-006 7e-006 1
+      2 VTXDSK 0.070 0.315 -0.6091 0.00028 0.0937 2 0 1.5708 7e-006 7e-006 1
+      2 VTXDSK 0.0345 0.275 -0.2791 0.00028 0.0937 2 0 1.5708 7e-006 7e-006 1
+      2 VTXDSK 0.0345 0.275  0.2791 0.00028 0.0937 2 0 1.5708 7e-006 7e-006 1
+      2 VTXDSK 0.070 0.315 0.6091 0.00028 0.0937 2 0 1.5708 7e-006 7e-006 1
+      2 VTXDSK 0.105 0.315 0.9186 0.00028 0.0937 2 0 1.5708 7e-006 7e-006 1
+      2 DCHWALL 0.345 2.02 2.125 0.25 5.55 0 0 0 0 0 0
+      2 DCHWALL 0.345 2.02 -2.125 0.25 5.55 0 0 0 0 0 0
+      2 FSILWRP 0.30 2.02 -2.32 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
+      2 FSILWRP 0.30 2.02 -2.3 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
+      2 FSILWRP 0.30 2.02 2.3 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
+      2 FSILWRP 0.30 2.02 2.32 0.00047 0.0937 2 0 1.5708 7e-006 9e-005 1
       2 FRAD 0.38 2.09 2.49 0.0043 0.005612 0 0 0 0 0 0
       2 FRAD 0.38 2.09 -2.49 0.0043 0.005612 0 0 0 0 0 0
       2 FPRESH 0.39 2.43 -2.55 0.02 1 2 0 1.5708 7e-005 0.01 1
       2 FPRESH 0.39 2.43 2.55 0.02 1 2 0 1.5708 7e-005 0.01 1
+
     }
 
 }
@@ -396,7 +402,7 @@ module ClusterCounting ClusterCounting {
 ########################################
 
 module TimeSmearing TimeSmearing {
-  set TrackInputArray ClusterCounting/tracks
+  set InputArray ClusterCounting/tracks
   set OutputArray tracks
 
   # assume constant 30 ps resolution for now
@@ -405,12 +411,13 @@ module TimeSmearing TimeSmearing {
                      }
 }
 
+
 ########################################
 #   Time Of Flight Measurement
 ########################################
 
 module TimeOfFlight TimeOfFlight {
-  set TrackInputArray TimeSmearing/tracks
+  set InputArray TimeSmearing/tracks
   set VertexInputArray TruthVertexFinder/vertices
 
   set OutputArray tracks
@@ -419,7 +426,7 @@ module TimeOfFlight TimeOfFlight {
   # 1: assume vertex time tV = 0
   # 2: calculate vertex time as vertex TOF, assuming tPV=0
 
-  set VertexTimeMode 2
+  set VertexTimeMode 0
 }
 
 ##############
@@ -430,6 +437,24 @@ module Merger TrackMerger {
 # add InputArray InputArray
   add InputArray TimeOfFlight/tracks
   set OutputArray tracks
+}
+
+
+######################
+# Looper Selection
+######################
+
+module Efficiency ForwardLooperTracks  {
+  set InputArray TrackMerger/tracks
+  set OutputArray tracks
+  set UseMomentumVector False
+
+  ## select looping tracks that end up in position |eta| > 3.142 (lost by calo)
+  set EfficiencyFormula {
+    (abs(eta) > 3.0 )                                 * (1.000) +
+    (abs(eta) <= 3.0 )                                * (0.000)
+  }
+
 }
 
 
@@ -447,14 +472,13 @@ module DualReadoutCalorimeter Calorimeter {
   set EFlowPhotonOutputArray eflowPhotons
   set EFlowNeutralHadronOutputArray eflowNeutralHadrons
 
-  set ECalEnergyMin 0.5
-  set HCalEnergyMin 0.5
-  set EnergyMin 0.5
-  set ECalEnergySignificanceMin 1.0
-  set HCalEnergySignificanceMin 1.0
-  set EnergySignificanceMin 1.0
+  set ECalMinSignificance 2.0
+  set HCalMinSignificance 2.5
+
+  set SmearLogNormal false
 
   set SmearTowerCenter true
+  #set SmearTowerCenter false
     set pi [expr {acos(-1)}]
 
     # Lists of the edges of each tower in eta and phi;
@@ -464,32 +488,25 @@ module DualReadoutCalorimeter Calorimeter {
     # Endcaps: deta=0.02 towers up to |eta| <= 3.0 (8.6° = 100 mrad)
     # Cell size: about 6 cm x 6 cm
 
-    #barrel:
+    set EtaPhiRes 0.02
+    set EtaMax 3.0
+
+    set pi [expr {acos(-1)}]
+
+    set nbins_phi [expr {$pi/$EtaPhiRes} ]
+    set nbins_phi [expr {int($nbins_phi)} ]
+
     set PhiBins {}
-    for {set i -120} {$i <= 120} {incr i} {
-        add PhiBins [expr {$i * $pi/120}]
-    }
-    #deta=0.02 units for |eta| <= 0.88
-    for {set i -44} {$i < 45} {incr i} {
-        set eta [expr {$i * 0.02}]
-        add EtaPhiBins $eta $PhiBins
+    for {set i -$nbins_phi} {$i <= $nbins_phi} {incr i} {
+      add PhiBins [expr {$i * $pi/$nbins_phi}]
     }
 
-    #endcaps:
-    set PhiBins {}
-    for {set i -120} {$i <= 120} {incr i} {
-        add PhiBins [expr {$i* $pi/120}]
-    }
-    #deta=0.02 units for 0.88 < |eta| <= 3.0
-    #first, from -3.0 to -0.88
-    for {set i 1} {$i <=106} {incr i} {
-        set eta [expr {-3.00 + $i * 0.02}]
-        add EtaPhiBins $eta $PhiBins
-    }
-    #same for 0.88 to 3.0
-    for  {set i 1} {$i <=106} {incr i} {
-        set eta [expr {0.88 + $i * 0.02}]
-        add EtaPhiBins $eta $PhiBins
+    set nbins_eta [expr {$EtaMax/$EtaPhiRes} ]
+    set nbins_eta [expr {int($nbins_eta)} ]
+
+    for {set i -$nbins_eta} {$i <= $nbins_eta} {incr i} {
+      set eta [expr {$i * $EtaPhiRes}]
+      add EtaPhiBins $eta $PhiBins
     }
 
     # default energy fractions {abs(PDG code)} {Fecal Fhcal}
@@ -510,21 +527,71 @@ module DualReadoutCalorimeter Calorimeter {
     add EnergyFraction {1000045} {0.0 0.0}
     # energy fractions for K0short and Lambda
     add EnergyFraction {310} {0.3 0.7}
+    add EnergyFraction {130} {0.3 0.7}
     add EnergyFraction {3122} {0.3 0.7}
 
 
+    ## ECAL crystals for the EM part from 2008.00338
     # set ECalResolutionFormula {resolution formula as a function of eta and energy}
     set ECalResolutionFormula {
-    (abs(eta) <= 0.88 )                     * sqrt(energy^2*0.01^2 + energy*0.11^2)+
-    (abs(eta) > 0.88 && abs(eta) <= 3.0)    * sqrt(energy^2*0.01^2 + energy*0.11^2)
+    (abs(eta) <= 0.88 )                     * sqrt(energy^2*0.005^2 + energy*0.03^2 + 0.002^2)+
+    (abs(eta) > 0.88 && abs(eta) <= 3.0)    * sqrt(energy^2*0.005^2 + energy*0.03^2 + 0.002^2)
     }
 
+
+    # Dual Readout
     # set HCalResolutionFormula {resolution formula as a function of eta and energy}
     set HCalResolutionFormula {
-    (abs(eta) <= 0.88 )                     * sqrt(energy^2*0.01^2 + energy*0.30^2)+
-    (abs(eta) > 0.88 && abs(eta) <= 3.0)    * sqrt(energy^2*0.01^2 + energy*0.30^2)
+    (abs(eta) <= 0.88 )                     * sqrt(energy^2*0.01^2 + energy*0.3^2 + 0.05^2)+
+    (abs(eta) > 0.88 && abs(eta) <= 3.0)    * sqrt(energy^2*0.01^2 + energy*0.3^2 + 0.05^2)
     }
 }
+
+########################################
+#   Time Smearing Neutrals
+########################################
+
+module TimeSmearing TimeSmearingNeutrals {
+  set InputArray Calorimeter/eflowNeutralHadrons
+  set OutputArray eflowNeutralHadrons
+
+  # assume constant 30 ps resolution for now
+  set TimeResolution {
+                       (abs(eta) > 0.0 && abs(eta) <= 3.0)* 30E-12
+                     }
+}
+
+########################################
+#   Time Of Flight Measurement
+########################################
+
+module TimeOfFlight TimeOfFlightNeutralHadron {
+  set InputArray TimeSmearingNeutrals/eflowNeutralHadrons
+  set VertexInputArray TruthVertexFinder/vertices
+
+  set OutputArray eflowNeutralHadrons
+
+  # 0: assume vertex time tV from MC Truth (ideal case)
+  # 1: assume vertex time tV = 0
+  # 2: calculate vertex time as vertex TOF, assuming tPV=0
+
+  ## TBF (add option to take hard vertex time)
+  set VertexTimeMode 1
+}
+
+
+############################
+# Energy flow track merger
+############################
+
+module Merger EFlowTrackMerger {
+# add InputArray InputArray
+  add InputArray Calorimeter/eflowTracks
+  add InputArray ForwardLooperTracks/tracks
+  set OutputArray eflowTracks
+}
+
+
 
 ####################
 # Energy flow merger
@@ -532,11 +599,24 @@ module DualReadoutCalorimeter Calorimeter {
 
 module Merger EFlowMerger {
 # add InputArray InputArray
-  add InputArray Calorimeter/eflowTracks
+  add InputArray EFlowTrackMerger/eflowTracks
   add InputArray Calorimeter/eflowPhotons
-  add InputArray Calorimeter/eflowNeutralHadrons
+  add InputArray TimeOfFlightNeutralHadron/eflowNeutralHadrons
   set OutputArray eflow
 }
+
+
+####################
+# Tower merger
+####################
+
+module Merger TowerMerger {
+# add InputArray InputArray
+  add InputArray Calorimeter/towers
+  add InputArray MuonFilter/muons
+  set OutputArray towers
+}
+
 
 ###################
 # Photon efficiency
@@ -570,7 +650,7 @@ module Isolation PhotonIsolation {
 
   set PTMin 0.5
 
-  set PTRatioMax 999.
+  set PTRatioMax 9999.
 }
 
 #################
@@ -578,7 +658,7 @@ module Isolation PhotonIsolation {
 #################
 
 module PdgCodeFilter ElectronFilter {
-  set InputArray Calorimeter/eflowTracks
+  set InputArray EFlowTrackMerger/eflowTracks
   set OutputArray electrons
   set Invert true
   add PdgCode {11}
@@ -590,7 +670,7 @@ module PdgCodeFilter ElectronFilter {
 #################
 
 module PdgCodeFilter MuonFilter {
-  set InputArray Calorimeter/eflowTracks
+  set InputArray EFlowTrackMerger/eflowTracks
   set OutputArray muons
   set Invert true
   add PdgCode {13}
@@ -631,7 +711,7 @@ module Isolation ElectronIsolation {
 
   set PTMin 0.5
 
-  set PTRatioMax 0.12
+  set PTRatioMax 9999
 }
 
 #################
@@ -667,7 +747,7 @@ module Isolation MuonIsolation {
 
   set PTMin 0.5
 
-  set PTRatioMax 0.25
+  set PTRatioMax 9999.
 }
 
 ###################
@@ -680,18 +760,6 @@ module Merger MissingET {
   set MomentumOutputArray momentum
 }
 
-##################
-# Scalar HT merger
-##################
-
-module Merger ScalarHT {
-# add InputArray InputArray
-  add InputArray UniqueObjectFinder/jets
-  add InputArray UniqueObjectFinder/electrons
-  add InputArray UniqueObjectFinder/photons
-  add InputArray UniqueObjectFinder/muons
-  set EnergyOutputArray energy
-}
 
 #####################
 # Neutrino Filter
@@ -711,6 +779,52 @@ module PdgCodeFilter NeutrinoFilter {
   add PdgCode {-14}
   add PdgCode {-16}
 }
+
+###################################
+# Gen Jet finder Durham exclusive
+###################################
+
+module FastJetFinder GenJetFinderDurhamN2 {
+
+  set InputArray NeutrinoFilter/filteredParticles
+  set OutputArray jets
+
+  # algorithm: 11 ee-durham kT algorithm
+  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
+  # to run exclusive njet mode set NJets to int
+  # to run exclusive dcut mode set DCut to float
+  # if DCut > 0 will run in dcut mode
+
+  set JetAlgorithm 11
+  set ExclusiveClustering true
+  set NJets 2
+  # set DCut 10.0
+}
+
+################################
+# Jet finder Durham exclusive
+################################
+
+module FastJetFinder FastJetFinderDurhamN2 {
+#  set InputArray Calorimeter/towers
+  set InputArray EFlowMerger/eflow
+
+  set OutputArray jets
+
+  # algorithm: 11 ee-durham kT algorithm
+  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
+  # to run exclusive njet mode set NJets to int
+  # to run exclusive dcut mode set DCut to float
+  # if DCut > 0 will run in dcut mode
+
+  set JetAlgorithm 11
+  set ExclusiveClustering true
+  set NJets 2
+  # set DCut 10.0
+
+}
+
+
 
 
 #####################
@@ -798,14 +912,36 @@ module BTagging BTagging {
   # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
 
   # default efficiency formula (misidentification rate)
+  add EfficiencyFormula {0} {0.005}
+
+  # efficiency formula for c-jets (misidentification rate)
+  add EfficiencyFormula {4} {0.01}
+
+  # efficiency formula for b-jets
+  add EfficiencyFormula {5} {0.85}
+}
+
+###########
+# c-tagging
+###########
+
+module BTagging CTagging {
+  set JetInputArray JetEnergyScale/jets
+
+  set BitNumber 1
+
+  # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
+
+  # default efficiency formula (misidentification rate)
   add EfficiencyFormula {0} {0.01}
 
   # efficiency formula for c-jets (misidentification rate)
-  add EfficiencyFormula {4} {0.10}
+  add EfficiencyFormula {5} {0.05}
 
   # efficiency formula for b-jets
-  add EfficiencyFormula {5} {0.80}
+  add EfficiencyFormula {4} {0.80}
 }
+
 
 #############
 # tau-tagging
@@ -821,9 +957,9 @@ module TauTagging TauTagging {
   set TauEtaMax 3.0
 
   # default efficiency formula (misidentification rate)
-  add EfficiencyFormula {0} {0.001}
+  add EfficiencyFormula {0} {0.01}
   # efficiency formula for tau-jets
-  add EfficiencyFormula {15} {0.6}
+  add EfficiencyFormula {15} {0.85}
 }
 
 
@@ -842,28 +978,26 @@ module TreeWriter TreeWriter {
     add Branch Delphes/allParticles Particle GenParticle
     add Branch TruthVertexFinder/vertices GenVertex Vertex
 
-    add Branch TrackMerger/tracks Track Track
-    add Branch Calorimeter/towers Tower Tower
-
-    add Branch Calorimeter/eflowTracks EFlowTrack Track
+    add Branch EFlowTrackMerger/eflowTracks EFlowTrack Track
+    add Branch TrackSmearing/tracks Track Track
     add Branch Calorimeter/eflowPhotons EFlowPhoton Tower
-    add Branch Calorimeter/eflowNeutralHadrons EFlowNeutralHadron Tower
+    add Branch TimeOfFlightNeutralHadron/eflowNeutralHadrons EFlowNeutralHadron Tower
 
     add Branch EFlowMerger/eflow ParticleFlowCandidate ParticleFlowCandidate
+    add Branch Calorimeter/towers Tower Tower
 
-    add Branch Calorimeter/photons CaloPhoton Photon
-    add Branch PhotonEfficiency/photons PhotonEff Photon
-    add Branch PhotonIsolation/photons PhotonIso Photon
+    add Branch ElectronEfficiency/electrons Electron Electron
+    add Branch MuonEfficiency/muons Muon Muon
+    add Branch PhotonEfficiency/photons Photon Photon
+
+    add Branch JetEnergyScale/jets Jet Jet
+    add Branch MissingET/momentum MissingET MissingET
 
     add Branch GenJetFinder/jets GenJet Jet
     add Branch GenMissingET/momentum GenMissingET MissingET
 
-    add Branch JetEnergyScale/jets Jet Jet
-    add Branch ElectronIsolation/electrons Electron Electron
-    add Branch PhotonIsolation/photons Photon Photon
-    add Branch MuonIsolation/muons Muon Muon
-
-    add Branch MissingET/momentum MissingET MissingET
+    add Branch GenJetFinderDurhamN2/jets GenJetDurhamN2 Jet
+    add Branch FastJetFinderDurhamN2/jets JetDurhamN2 Jet
 
     # add Info InfoName InfoValue
     add Info Bz $B

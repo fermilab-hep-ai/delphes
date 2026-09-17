@@ -30,10 +30,26 @@
 #include "TMath.h"
 #include "TObjArray.h"
 
+#include <map>
 #include <stdexcept>
 #include <vector>
 
 using namespace std;
+
+namespace
+{
+
+// the generator particle a reconstructed candidate descends from
+Candidate *GetGeneratorAncestor(Candidate *candidate)
+{
+  while(candidate->GetCandidates()->GetEntriesFast() > 0)
+  {
+    candidate = static_cast<Candidate *>(candidate->GetCandidates()->At(0));
+  }
+  return candidate;
+}
+
+} // namespace
 
 //------------------------------------------------------------------------------
 
@@ -159,10 +175,27 @@ Candidate *PrimaryVertexFinder::FindFastHisto()
   }
   if(bestSum <= 0.0) return 0;
 
-  // pt-weighted mean z of the tracks inside the winning window
+  // At high pile-up the winning window usually spans several interactions, so
+  // its pt-weighted mean z need not coincide with any of them. The primary
+  // vertex is taken to be the interaction contributing the most saturated track
+  // pt inside the window, found through the generator particles each vertex
+  // holds as constituents. The window choice itself uses tracks only.
+  map<UInt_t, Candidate *> particleToVertex;
+  Candidate *vertex;
+  fItVertexInputArray->Reset();
+  while((vertex = static_cast<Candidate *>(fItVertexInputArray->Next())))
+  {
+    TIter itConstituents(vertex->GetCandidates());
+    while((particle = static_cast<Candidate *>(itConstituents.Next())))
+    {
+      particleToVertex[particle->GetUniqueID()] = vertex;
+    }
+  }
+
   Double_t zLow = fHistogramMin + bestBin * fBinWidth;
   Double_t zHigh = zLow + fWindowSize * fBinWidth;
   Double_t sumZ = 0.0, sumPt = 0.0;
+  map<Candidate *, Double_t> ptPerVertex;
 
   fItTrackInputArray->Reset();
   while((candidate = static_cast<Candidate *>(fItTrackInputArray->Next())))
@@ -177,13 +210,39 @@ Candidate *PrimaryVertexFinder::FindFastHisto()
 
     sumZ += pt * z;
     sumPt += pt;
+
+    map<UInt_t, Candidate *>::const_iterator it = particleToVertex.find(GetGeneratorAncestor(candidate)->GetUniqueID());
+    if(it != particleToVertex.end()) ptPerVertex[it->second] += pt;
   }
   if(sumPt <= 0.0) return 0;
 
-  Candidate *vertex = GetFactory()->NewCandidate();
-  vertex->Position.SetXYZT(0.0, 0.0, sumZ / sumPt, 0.0);
-  vertex->SumPT2 = bestSum;
-  return vertex;
+  Candidate *best = 0;
+  Double_t bestPt = 0.0;
+  for(map<Candidate *, Double_t>::const_iterator it = ptPerVertex.begin(); it != ptPerVertex.end(); ++it)
+  {
+    if(it->second > bestPt)
+    {
+      bestPt = it->second;
+      best = it->first;
+    }
+  }
+  if(best) return best;
+
+  // no track could be traced to a vertex: fall back to the one nearest the
+  // pt-weighted mean z of the window
+  Double_t zFit = sumZ / sumPt;
+  Double_t bestDistance = -1.0;
+  fItVertexInputArray->Reset();
+  while((vertex = static_cast<Candidate *>(fItVertexInputArray->Next())))
+  {
+    Double_t distance = TMath::Abs(vertex->Position.Z() - zFit);
+    if(bestDistance < 0.0 || distance < bestDistance)
+    {
+      bestDistance = distance;
+      best = vertex;
+    }
+  }
+  return best;
 }
 
 //------------------------------------------------------------------------------
@@ -200,7 +259,6 @@ void PrimaryVertexFinder::Process()
 
   // No vertex could be reconstructed: fall back to the signal vertex rather
   // than leaving the chain without a primary vertex at all.
-  Bool_t synthetic = (fMethod == "FastHisto" && chosen);
   if(!chosen) chosen = FindSignal();
   if(!chosen) return;
 
@@ -212,7 +270,7 @@ void PrimaryVertexFinder::Process()
   fItVertexInputArray->Reset();
   while((vertex = static_cast<Candidate *>(fItVertexInputArray->Next())))
   {
-    if(!synthetic && vertex == chosen) continue; // already emitted as the PV
+    if(vertex == chosen) continue; // already emitted as the PV
     Candidate *other = static_cast<Candidate *>(vertex->Clone());
     other->IsPU = 1;
     fOutputArray->Add(other);

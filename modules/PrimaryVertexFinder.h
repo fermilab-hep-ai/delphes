@@ -36,26 +36,31 @@
  *  Method:
  *    FastHisto  L1-style, following L1Trigger/VertexFinder (fastHisto): fill a
  *               z0 histogram with track pt (saturated at MaxTrackPt) for tracks
- *               above MinTrackPt, take the sliding window of WindowSize bins
- *               with the largest sum, and return the pt-weighted mean z of the
- *               tracks in it. Note that Delphes tracks carry the unsmeared
- *               production z of their generator particle, so the binning does
- *               almost no work here and the result is close to "the vertex with
- *               the largest track-pt sum above MinTrackPt". That is the
- *               selection bias we are after; the z resolution is optimistic.
+ *               above MinTrackPt and take the sliding window of WindowSize bins
+ *               with the largest sum. With the CMS defaults the window is 4.8 mm
+ *               wide, so at high pile-up it usually spans several interactions.
+ *               The primary vertex is the interaction contributing the most
+ *               saturated track pt inside the window (reco-to-truth vertex
+ *               matching through generator ancestry), falling back to the vertex
+ *               nearest the window's pt-weighted mean z. Delphes tracks carry
+ *               the unsmeared production z of their generator particle, so the
+ *               vertex z resolution is optimistic; the selection bias, and the
+ *               merging of nearby interactions, are what this reproduces.
  *    SumPT2     the vertex with the largest SumPT2, as computed by PileUpMerger
  *               over its charged generator particles. A perfect offline-style
  *               vertex finder, with no track thresholds or acceptance.
  *    Signal     the generator signal vertex, i.e. what Delphes does today.
  *               Provided so the module can be shown to be a no-op.
  *
- *  Output is the full vertex collection with exactly one vertex flagged
- *  IsPU = 0 and placed first, so TrackPileUpSubtractor, RunPUPPI and
- *  RunL1TPUPPI all pick it up with no changes. RunPUPPI also uses
- *  GetEntries() of this array as the vertex multiplicity behind its neutral pt
- *  threshold; that count is preserved for SumPT2 and Signal, and is one larger
- *  for FastHisto, whose fitted vertex is a new object rather than one of the
- *  inputs. The shift is 0.7 of one vertex out of ~200 and is negligible there.
+ *  Output is the full vertex collection, cloned, with the chosen vertex placed
+ *  first and flagged IsPU = 0 and every other vertex flagged IsPU = 1, so
+ *  TrackPileUpSubtractor, RunPUPPI and RunL1TPUPPI all pick it up with no
+ *  configuration beyond their vertex input array. The number of vertices is
+ *  preserved, which matters because RunPUPPI uses it as the vertex multiplicity
+ *  behind its neutral pt threshold. The chosen vertex is always one of the
+ *  inputs and keeps its constituents, which TrackPileUpSubtractor uses to tell
+ *  the primary interaction's tracks from pile-up once the signal vertex is no
+ *  longer the primary one.
  *
  *  Distances are in mm, the Delphes convention. The CMS defaults quoted in
  *  L1Trigger/VertexFinder are in cm and have been converted.

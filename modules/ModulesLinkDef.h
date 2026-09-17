@@ -60,6 +60,7 @@
 #include "modules/JetPileUpSubtractor.h"
 #include "modules/TrackPileUpSubtractor.h"
 #include "modules/RunL1TPUPPI.h"
+#include "modules/PrimaryVertexFinder.h"
 #include "modules/TaggingParticlesSkimmer.h"
 #include "modules/PileUpJetID.h"
 #include "modules/PhotonID.h"
@@ -125,6 +126,7 @@
 #pragma link C++ class JetPileUpSubtractor+;
 #pragma link C++ class TrackPileUpSubtractor+;
 #pragma link C++ class RunL1TPUPPI+;
+#pragma link C++ class PrimaryVertexFinder+;
 #pragma link C++ class TaggingParticlesSkimmer+;
 #pragma link C++ class PileUpJetID+;
 #pragma link C++ class PhotonID+;

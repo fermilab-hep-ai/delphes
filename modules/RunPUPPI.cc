@@ -187,6 +187,10 @@ void RunPUPPI::Process()
     curRecoObj.eta = momentum.Eta();
     curRecoObj.phi = momentum.Phi();
     curRecoObj.m = momentum.M();
+    // PuppiContainer::initialize() builds the "puppi register" from (id, charge).
+    // Without this assignment the register is derived from an uninitialised value,
+    // which corrupts the charged-PU reference sample used for the PUPPI median.
+    curRecoObj.charge = candidate->Charge;
     particle = static_cast<Candidate *>(candidate->GetCandidates()->At(0)); //if(fApplyNoLep && TMath::Abs(candidate->PID) == 11) continue; //Dumb cut to minimize the nolepton on electron
     //if(fApplyNoLep && TMath::Abs(candidate->PID) == 13) continue;
     if(candidate->IsRecoPU and candidate->Charge != 0)

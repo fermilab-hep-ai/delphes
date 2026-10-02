@@ -20,6 +20,25 @@
  *
  *  Subtract pile-up contribution from tracks.
  *
+ *  A track is flagged as pile-up (IsRecoPU = 1) when it does not come from the
+ *  primary interaction and its production z lies outside the z resolution
+ *  around the primary vertex. Tracks from the primary interaction are never
+ *  flagged, however displaced.
+ *
+ *  The primary vertex is the last vertex in VertexInputArray with IsPU == 0.
+ *  With the PileUpMerger collection that is the generator signal vertex, the
+ *  primary interaction is the set of particles with IsPU == 0, and the truth
+ *  flag is used directly. A vertex finder such as PrimaryVertexFinder may
+ *  instead promote a pile-up vertex; the primary interaction is then taken to
+ *  be that vertex's constituents, which PileUpMerger fills with the charged
+ *  particles of each interaction, and a track belongs to it when its generator
+ *  ancestor is one of them. The signal interaction's tracks are then subject
+ *  to the z resolution like any other pile-up.
+ *
+ *  Only charged particles are vertex constituents, so with a promoted vertex
+ *  a track whose ancestor is neutral (a photon conversion, for example) is
+ *  treated as coming from another interaction.
+ *
  *  \author P. Demin - UCL, Louvain-la-Neuve
  *
  */
@@ -44,10 +63,26 @@
 
 #include <algorithm>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 
 using namespace std;
+
+namespace
+{
+
+// the generator particle a reconstructed candidate descends from
+Candidate *GetGeneratorAncestor(Candidate *candidate)
+{
+  while(candidate->GetCandidates()->GetEntriesFast() > 0)
+  {
+    candidate = static_cast<Candidate *>(candidate->GetCandidates()->At(0));
+  }
+  return candidate;
+}
+
+} // namespace
 
 //------------------------------------------------------------------------------
 
@@ -116,12 +151,13 @@ void TrackPileUpSubtractor::Finish()
 
 void TrackPileUpSubtractor::Process()
 {
-  Candidate *candidate, *particle;
+  Candidate *candidate, *particle, *vertex = 0;
   map<TIterator *, TObjArray *>::iterator itInputMap;
   TIterator *iterator;
   TObjArray *array;
   Double_t z, zvtx = 0;
   Double_t pt, eta, phi, e;
+  Bool_t fromPrimary;
 
   // find z position of primary vertex
 
@@ -131,7 +167,27 @@ void TrackPileUpSubtractor::Process()
     if(!candidate->IsPU)
     {
       zvtx = candidate->Position.Z();
+      vertex = candidate;
       // break;
+    }
+  }
+
+  // Identify the primary interaction. Its constituents carry the truth IsPU
+  // flag of the interaction they came from, so a promoted pile-up vertex is
+  // recognisable even though its own IsPU has been reset to 0. A vertex with
+  // no constituents is treated as the signal vertex, as before.
+  Bool_t primaryIsSignal = kTRUE;
+  set<UInt_t> primaryParticles;
+  if(vertex && vertex->GetCandidates()->GetEntriesFast() > 0)
+  {
+    primaryIsSignal = !static_cast<Candidate *>(vertex->GetCandidates()->At(0))->IsPU;
+    if(!primaryIsSignal)
+    {
+      TIter itConstituents(vertex->GetCandidates());
+      while((particle = static_cast<Candidate *>(itConstituents.Next())))
+      {
+        primaryParticles.insert(particle->GetUniqueID());
+      }
     }
   }
 
@@ -158,7 +214,12 @@ void TrackPileUpSubtractor::Process()
       // apply pile-up subtraction
       // assume perfect pile-up subtraction for tracks outside fZVertexResolution
 
-      if(candidate->Charge != 0 && candidate->IsPU && TMath::Abs(z - zvtx) > fFormula->Eval(pt, eta, phi, e) * 1.0e3)
+      if(primaryIsSignal)
+        fromPrimary = !candidate->IsPU;
+      else
+        fromPrimary = primaryParticles.count(GetGeneratorAncestor(candidate)->GetUniqueID()) > 0;
+
+      if(candidate->Charge != 0 && !fromPrimary && TMath::Abs(z - zvtx) > fFormula->Eval(pt, eta, phi, e) * 1.0e3)
       {
         candidate->IsRecoPU = 1;
       }

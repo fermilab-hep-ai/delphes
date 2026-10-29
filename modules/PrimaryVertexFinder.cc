@@ -54,6 +54,8 @@ Candidate *GetGeneratorAncestor(Candidate *candidate)
 //------------------------------------------------------------------------------
 
 PrimaryVertexFinder::PrimaryVertexFinder() :
+  fFastHistoZ(0.0),
+  fFastHistoSumPT2(0.0),
   fItVertexInputArray(0),
   fItTrackInputArray(0),
   fTrackInputArray(0)
@@ -97,6 +99,8 @@ void PrimaryVertexFinder::Init()
   }
 
   fOutputArray = ExportArray(GetString("OutputArray", "vertices"));
+  fPrimaryVertexOutputArray = ExportArray(GetString("PrimaryVertexOutputArray", "primaryVertex"));
+  fFastHistoOutputArray = ExportArray(GetString("FastHistoOutputArray", "fastHistoVertex"));
 }
 
 //------------------------------------------------------------------------------
@@ -138,6 +142,9 @@ Candidate *PrimaryVertexFinder::FindBySumPT2()
 // fastHisto, following L1Trigger/VertexFinder/src/VertexFinder.cc
 Candidate *PrimaryVertexFinder::FindFastHisto()
 {
+  fFastHistoZ = 0.0;
+  fFastHistoSumPT2 = 0.0;
+
   Int_t nBins = Int_t((fHistogramMax - fHistogramMin) / fBinWidth);
   if(nBins < fWindowSize) return 0;
 
@@ -194,7 +201,7 @@ Candidate *PrimaryVertexFinder::FindFastHisto()
 
   Double_t zLow = fHistogramMin + bestBin * fBinWidth;
   Double_t zHigh = zLow + fWindowSize * fBinWidth;
-  Double_t sumZ = 0.0, sumPt = 0.0;
+  Double_t sumZ = 0.0, sumPt = 0.0, sumPt2 = 0.0;
   map<Candidate *, Double_t> ptPerVertex;
 
   fItTrackInputArray->Reset();
@@ -210,11 +217,16 @@ Candidate *PrimaryVertexFinder::FindFastHisto()
 
     sumZ += pt * z;
     sumPt += pt;
+    sumPt2 += pt * pt;
 
     map<UInt_t, Candidate *>::const_iterator it = particleToVertex.find(GetGeneratorAncestor(candidate)->GetUniqueID());
     if(it != particleToVertex.end()) ptPerVertex[it->second] += pt;
   }
   if(sumPt <= 0.0) return 0;
+
+  // the vertex z0 fastHisto itself reports
+  fFastHistoZ = sumZ / sumPt;
+  fFastHistoSumPT2 = sumPt2;
 
   Candidate *best = 0;
   Double_t bestPt = 0.0;
@@ -230,12 +242,11 @@ Candidate *PrimaryVertexFinder::FindFastHisto()
 
   // no track could be traced to a vertex: fall back to the one nearest the
   // pt-weighted mean z of the window
-  Double_t zFit = sumZ / sumPt;
   Double_t bestDistance = -1.0;
   fItVertexInputArray->Reset();
   while((vertex = static_cast<Candidate *>(fItVertexInputArray->Next())))
   {
-    Double_t distance = TMath::Abs(vertex->Position.Z() - zFit);
+    Double_t distance = TMath::Abs(vertex->Position.Z() - fFastHistoZ);
     if(bestDistance < 0.0 || distance < bestDistance)
     {
       bestDistance = distance;
@@ -257,6 +268,14 @@ void PrimaryVertexFinder::Process()
   else
     chosen = FindSignal();
 
+  if(fMethod == "FastHisto")
+  {
+    Candidate *fastHisto = GetFactory()->NewCandidate();
+    fastHisto->Position.SetXYZT(0.0, 0.0, fFastHistoZ, 0.0);
+    fastHisto->SumPT2 = fFastHistoSumPT2;
+    fFastHistoOutputArray->Add(fastHisto);
+  }
+
   // No vertex could be reconstructed: fall back to the signal vertex rather
   // than leaving the chain without a primary vertex at all.
   if(!chosen) chosen = FindSignal();
@@ -265,6 +284,7 @@ void PrimaryVertexFinder::Process()
   Candidate *output = static_cast<Candidate *>(chosen->Clone());
   output->IsPU = 0;
   fOutputArray->Add(output);
+  fPrimaryVertexOutputArray->Add(output);
 
   Candidate *vertex;
   fItVertexInputArray->Reset();

@@ -62,6 +62,21 @@
  *  the primary interaction's tracks from pile-up once the signal vertex is no
  *  longer the primary one.
  *
+ *  Two more arrays, with one entry per event each, say what the vertex finder
+ *  decided, for writing out (TreeWriter re-sorts vertex arrays by SumPT2, so
+ *  the order of OutputArray is lost there):
+ *    PrimaryVertexOutputArray  the chosen vertex on its own, the same object as
+ *                              the first entry of OutputArray. Its position and
+ *                              ClusterIndex are those of the generator
+ *                              interaction, so this is truth, not an L1 quantity.
+ *    FastHistoOutputArray      FastHisto only: the L1 vertex as fastHisto
+ *                              reconstructs it. Z is the pt-weighted mean z of
+ *                              the tracks in the winning window (saturated pt,
+ *                              as L1Trigger/VertexFinder computes z0) and SumPT2
+ *                              the sum of their saturated pt^2. Both are 0 if no
+ *                              track passed. No generator information: X, Y, T
+ *                              are 0 and ClusterIndex is -1.
+ *
  *  Distances are in mm, the Delphes convention. The CMS defaults quoted in
  *  L1Trigger/VertexFinder are in cm and have been converted.
  *
@@ -99,6 +114,10 @@ private:
   Double_t fBinWidth; //!
   Int_t fWindowSize; //!
 
+  // fastHisto's own estimate, set by FindFastHisto
+  Double_t fFastHistoZ; //!
+  Double_t fFastHistoSumPT2; //!
+
   TIterator *fItVertexInputArray; //!
   TIterator *fItTrackInputArray; //!
 
@@ -106,6 +125,8 @@ private:
   const TObjArray *fTrackInputArray; //!
 
   TObjArray *fOutputArray; //!
+  TObjArray *fPrimaryVertexOutputArray; //!
+  TObjArray *fFastHistoOutputArray; //!
 
   ClassDef(PrimaryVertexFinder, 1)
 };
